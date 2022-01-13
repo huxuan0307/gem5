@@ -41,6 +41,7 @@
 #include "arch/riscv/regs/float.hh"
 #include "arch/riscv/regs/int.hh"
 #include "arch/riscv/regs/misc.hh"
+#include "arch/riscv/regs/vector.hh"
 #include "base/bitfield.hh"
 #include "base/compiler.hh"
 #include "base/logging.hh"
@@ -186,6 +187,14 @@ namespace RiscvISA
     [MISCREG_FFLAGS]        = "FFLAGS",
     [MISCREG_FRM]           = "FRM",
 
+    [MISCREG_VSTART]        = "VSTART",
+    [MISCREG_VXSAT]         = "VXSAT",
+    [MISCREG_VXRM]          = "VXRM",
+    [MISCREG_VCSR]          = "VCSR",
+    [MISCREG_VL]            = "VL",
+    [MISCREG_VTYPE]         = "VTYPE",
+    [MISCREG_VLENB]         = "VLENB",
+
     [MISCREG_NMIVEC]        = "NMIVEC",
     [MISCREG_NMIE]          = "NMIE",
     [MISCREG_NMIP]          = "NMIP",
@@ -195,6 +204,7 @@ ISA::ISA(const Params &p) : BaseISA(p)
 {
     _regClasses.emplace_back(NumIntRegs, 0);
     _regClasses.emplace_back(NumFloatRegs);
+    _regClasses.emplace_back(NumVecRegs * TheISA::NumVecElemPerVecReg);
     _regClasses.emplace_back(1); // Not applicable to RISCV
     _regClasses.emplace_back(2); // Not applicable to RISCV
     _regClasses.emplace_back(1); // Not applicable to RISCV
@@ -220,6 +230,13 @@ ISA::copyRegsFrom(ThreadContext *src)
     // Second loop through the float registers.
     for (int i = 0; i < NumFloatRegs; ++i)
         tc->setFloatReg(i, src->readFloatReg(i));
+
+    // Third loop through the vector registers.
+    for (int i = 0; i < NumVecRegs; i++) {
+        for (int e = 0; e < NumVecElemPerVecReg; e++) {
+            tc->setVecElemFlat(i, e, src->readVecElemFlat(i, e));
+        }
+    }
 
     // Lastly copy PC/NPC
     tc->pcState(src->pcState());

@@ -1289,6 +1289,27 @@ decode QUADRANT default Unknown::unknown() {
             }
         }
 
+        0x15: decode FUNCT3 {
+            0x7: decode BIT31 {
+                format VConfOp {
+                    0x0: vsetvli({{
+                        rs1 = srcRegIdx(1).index();
+                        vtype = zimm;
+                    }}, VectorConfOp);
+                    0x1: decode BIT30 {
+                        0x0: vsetvl({{
+                            rs1 = srcRegIdx(1).index();
+                            vtype = Rs2_ud;
+                        }}, VectorConfOp);
+                        0x1: vsetivli({{
+                            rs1 = uimm;
+                            vtype = zimm;
+                        }}, VectorConfOp);
+                    }
+                }
+            }
+        }
+
         0x18: decode FUNCT3 {
             format BOp {
                 0x0: beq({{

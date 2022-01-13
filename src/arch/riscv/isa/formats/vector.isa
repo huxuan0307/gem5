@@ -1,0 +1,78 @@
+def template VConfExecute {{
+    Fault
+    %(class_name)s::execute(ExecContext *xc,
+        Trace::InstRecord *traceData) const
+    {
+        %(op_decl)s;
+        %(op_rd)s;
+
+        uint64_t rd = srcRegIdx(0).index();
+
+        // Assigned in code block
+        uint64_t rs1;
+        uint64_t vtype;
+        %(code)s;
+
+        uint64_t avl;
+        if (rd == 0 && rs1 == 0) {
+            avl = xc->readMiscReg(MISCREG_VL);
+        } else if (rs1 == 0) {
+            avl = std::numeric_limits<uint64_t>::max();
+        } else {
+            avl = srcRegIdx(rs1).index();
+        }
+
+        uint8_t vsew = bits(vtype, 5, 3);
+        uint64_t SEW;
+        switch (vsew) {
+        case 0: SEW = 8; break;
+        case 1: SEW = 16; break;
+        case 2: SEW = 32; break;
+        case 3: SEW = 64; break;
+        default:
+            panic("invalid SEW");
+        }
+
+        uint8_t vlmul = bits(vtype, 2, 0);
+        uint64_t LMUL;
+        switch (vlmul) {
+        case 0: LMUL = 1; break;
+        case 1: LMUL = 2; break;
+        case 2: LMUL = 4; break;
+        case 3: LMUL = 8; break;
+        default:
+            panic("invalid LMUL");
+        }
+
+        uint64_t VLMAX = LMUL * (uint64_t)gem5::RiscvISA::VLEN / SEW;
+
+        uint64_t vl = VLMAX;
+        if (avl <= VLMAX) {
+            vl = avl;
+        }
+
+        // Rd = vl;
+        xc->setIntRegOperand(this, 0, vl);
+
+        xc->setMiscReg(MISCREG_VL, vl);
+        xc->setMiscReg(MISCREG_VTYPE, vtype);
+        %(op_wb)s;
+        return NoFault;
+    }
+}};
+
+def format VConfOp(code, *flags) {{
+    iop = InstObjParams(name, Name, 'VConfOp', code, flags)
+    header_output = BasicDeclare.subst(iop)
+    decoder_output = BasicConstructor.subst(iop)
+    decode_block = BasicDecode.subst(iop)
+    exec_output = VConfExecute.subst(iop)
+}};
+
+def format VMemLoadOp(code, *flags) {{
+    iop = InstObjParams(name, Name, 'VMemLoadOp', code, flags)
+    header_output = BasicDeclare.subst(iop)
+    decoder_output = BasicConstructor.subst(iop)
+    decode_block = BasicDecode.subst(iop)
+    exec_output = BasicExecute.subst(iop)
+}};

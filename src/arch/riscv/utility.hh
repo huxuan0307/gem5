@@ -51,6 +51,7 @@
 
 #include "arch/riscv/regs/float.hh"
 #include "arch/riscv/regs/int.hh"
+#include "arch/riscv/regs/vector.hh"
 #include "base/types.hh"
 #include "cpu/reg_class.hh"
 #include "cpu/static_inst.hh"
@@ -121,13 +122,20 @@ registerName(RegId reg)
             return str.str();
         }
         return IntRegNames[reg.index()];
-    } else {
+    } else if (reg.is(FloatRegClass)) {
         if (reg.index() >= NumFloatRegs) {
             std::stringstream str;
             str << "?? (f" << reg.index() << ')';
             return str.str();
         }
         return FloatRegNames[reg.index()];
+    } else {
+        if (reg.index() >= NumVecRegs) {
+            std::stringstream str;
+            str << "?? (v" << reg.index() << ')';
+            return str.str();
+        }
+        return VecRegNames[reg.index()];
     }
 }
 

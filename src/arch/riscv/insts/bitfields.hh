@@ -16,4 +16,9 @@
 #define RS1     bits(machInst, 19, 15)
 #define RS2     bits(machInst, 24, 20)
 
+#define BIT30   bits(machInst, 30)
+#define BIT31   bits(machInst, 31)
+#define ZIMM    bits(machInst, 30, 20)
+#define UIMM    bits(machInst, 19, 15)
+
 #endif // __ARCH_RISCV_BITFIELDS_HH__
