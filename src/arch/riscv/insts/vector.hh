@@ -16,6 +16,23 @@ namespace RiscvISA
 {
 
 /**
+ * Base class for Arith IVV operations.
+ */
+class VIntOp : public RiscvStaticInst
+{
+  protected:
+    uint64_t vm;
+
+    VIntOp(const char *mnem, MachInst _machInst, OpClass __opClass)
+        : RiscvStaticInst(mnem, _machInst, __opClass),
+          vm(VM)
+    {}
+
+    std::string generateDisassembly(
+        Addr pc, const loader::SymbolTable *symtab) const override;
+};
+
+/**
  * Base class for Vector Config operations
  */
 class VConfOp : public RiscvStaticInst

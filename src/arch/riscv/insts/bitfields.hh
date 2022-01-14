@@ -21,4 +21,6 @@
 #define ZIMM    bits(machInst, 30, 20)
 #define UIMM    bits(machInst, 19, 15)
 
+#define VM      bits(machInst, 25)
+
 #endif // __ARCH_RISCV_BITFIELDS_HH__

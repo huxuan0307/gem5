@@ -176,11 +176,17 @@ class MinorDefaultMiscFU(MinorFU):
     opClasses = minorMakeOpClassSet(['IprAccess', 'InstPrefetch'])
     opLat = 1
 
+# FIXME: fix latency
+class MinorDefaultVecFU(MinorFU):
+    opClasses = minorMakeOpClassSet(['VectorConf', 'VectorInt',
+                                     'VectorMemLoad'])
+    opLat = 1
+
 class MinorDefaultFUPool(MinorFUPool):
     funcUnits = [MinorDefaultIntFU(), MinorDefaultIntFU(),
         MinorDefaultIntMulFU(), MinorDefaultIntDivFU(),
         MinorDefaultFloatSimdFU(), MinorDefaultPredFU(),
-        MinorDefaultMemFU(), MinorDefaultMiscFU()]
+        MinorDefaultMemFU(), MinorDefaultVecFU(), MinorDefaultMiscFU()]
 
 class ThreadPolicy(Enum): vals = ['SingleThreaded', 'RoundRobin', 'Random']
 

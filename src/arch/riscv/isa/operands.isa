@@ -39,6 +39,8 @@ def operand_types {{
     'ud' : 'uint64_t',
     'sf' : 'float',
     'df' : 'double',
+
+    'vi' : 'vi',
     'vc' : 'RiscvISA::VecRegContainer'
 }};
 

@@ -14,6 +14,19 @@ namespace RiscvISA
 {
 
 std::string
+VIntOp::generateDisassembly(Addr pc, const loader::SymbolTable *symtab) const
+{
+    std::stringstream ss;
+    ss << mnemonic << ' ' << registerName(destRegIdx(0)) << ", " <<
+        registerName(srcRegIdx(0)) << ", " <<
+        registerName(srcRegIdx(1));
+    if (vm == 0) {
+        ss << ", v0.t";
+    }
+    return ss.str();
+}
+
+std::string
 VConfOp::generateDisassembly(Addr pc, const loader::SymbolTable *symtab) const
 {
     std::stringstream ss;
@@ -23,7 +36,7 @@ VConfOp::generateDisassembly(Addr pc, const loader::SymbolTable *symtab) const
     } else if (bit31 && bit30) {
         ss << uimm << ", " << zimm;
     } else {
-        ss << registerName(srcRegIdx(0)) << zimm;
+        ss << registerName(srcRegIdx(0)) << ", " << zimm;
     }
     return ss.str();
 }
