@@ -41,7 +41,7 @@ def template VConfExecute {{
         %(op_decl)s;
         %(op_rd)s;
 
-        uint64_t rd = srcRegIdx(0).index();
+        uint64_t rd = destRegIdx(0).index();
 
         // Assigned in code block
         uint64_t rs1;
@@ -54,7 +54,7 @@ def template VConfExecute {{
         } else if (rs1 == 0) {
             avl = std::numeric_limits<uint64_t>::max();
         } else {
-            avl = srcRegIdx(rs1).index();
+            avl = Rs1;
         }
 
         uint64_t VLMAX = LMUL(vtype) *
@@ -64,8 +64,7 @@ def template VConfExecute {{
             vl = avl;
         }
 
-        // Rd = vl;
-        xc->setIntRegOperand(this, 0, vl);
+        Rd = vl;
 
         xc->setMiscReg(MISCREG_VL, vl);
         xc->setMiscReg(MISCREG_VTYPE, vtype);
@@ -79,68 +78,66 @@ def template VIntExecute {{
     %(class_name)s::execute(ExecContext *xc,
         Trace::InstRecord *traceData) const
     {
-        uint64_t avl = xc->readMiscReg(MISCREG_VL);
+        uint64_t vl = xc->readMiscReg(MISCREG_VL);
         uint64_t vtype = xc->readMiscReg(MISCREG_VTYPE);
+        auto tc = xc->tcBase();
+        const RiscvISA::vreg_t& tmp_v0 = tc->readVecReg(RegId(VecRegClass, 0));
 
         switch (SEW(vtype)) {
             case 8: {
                 using vi = int8_t;
                 %(op_decl)s;
                 %(op_rd)s;
-                const TheISA::VecRegContainer& tmp_v0 =
-                    xc->readVecRegOperand(this, 0);
                 auto v0 = tmp_v0.as<vi>();
-                for (unsigned i = 0; i < avl; i++) {
+                for (unsigned i = 0; i < vl; i++) {
                     if(vm || v0[i]) {
                         %(code)s;
                     }
                 }
-                %(op_wb)s;
+                // %(op_wb)s;
+                xc->setVecRegOperand(this, 0, tmp_d0);
                 break;
             }
             case 16: {
                 using vi = int16_t;
                 %(op_decl)s;
                 %(op_rd)s;
-                const TheISA::VecRegContainer& tmp_v0 =
-                    xc->readVecRegOperand(this, 0);
                 auto v0 = tmp_v0.as<vi>();
-                for (unsigned i = 0; i < avl; i++) {
+                for (unsigned i = 0; i < vl; i++) {
                     if(vm || v0[i]) {
                         %(code)s;
                     }
                 }
-                %(op_wb)s;
+                // %(op_wb)s;
+                xc->setVecRegOperand(this, 0, tmp_d0);
                 break;
             }
             case 32: {
                 using vi = int32_t;
                 %(op_decl)s;
                 %(op_rd)s;
-                const TheISA::VecRegContainer& tmp_v0 =
-                    xc->readVecRegOperand(this, 0);
                 auto v0 = tmp_v0.as<vi>();
-                for (unsigned i = 0; i < avl; i++) {
+                for (unsigned i = 0; i < vl; i++) {
                     if(vm || v0[i]) {
                         %(code)s;
                     }
                 }
-                %(op_wb)s;
+                // %(op_wb)s;
+                xc->setVecRegOperand(this, 0, tmp_d0);
                 break;
             }
             case 64: {
                 using vi = int64_t;
                 %(op_decl)s;
                 %(op_rd)s;
-                const TheISA::VecRegContainer& tmp_v0 =
-                    xc->readVecRegOperand(this, 0);
                 auto v0 = tmp_v0.as<vi>();
-                for (unsigned i = 0; i < avl; i++) {
+                for (unsigned i = 0; i < vl; i++) {
                     if(vm || v0[i]) {
                         %(code)s;
                     }
                 }
-                %(op_wb)s;
+                // %(op_wb)s;
+                xc->setVecRegOperand(this, 0, tmp_d0);
                 break;
             }
             default:
@@ -167,10 +164,269 @@ def format VConfOp(code, *flags) {{
     exec_output = VConfExecute.subst(iop)
 }};
 
-def format VMemLoadOp(code, *flags) {{
-    iop = InstObjParams(name, Name, 'VMemLoadOp', code, flags)
-    header_output = BasicDeclare.subst(iop)
-    decoder_output = BasicConstructor.subst(iop)
-    decode_block = BasicDecode.subst(iop)
-    exec_output = BasicExecute.subst(iop)
+////////////////////////////////////////////////////////////////////
+//
+// Vector memory operation instructions
+//
+def template VectorLoadStoreDeclare {{
+    /**
+     * Static instruction class for "%(mnemonic)s".
+     */
+    class %(class_name)s : public %(base_class)s
+    {
+      private:
+        %(reg_idx_arr_decl)s;
+
+      public:
+        /// Constructor.
+        %(class_name)s(ExtMachInst machInst);
+
+        Fault execute(ExecContext *, Trace::InstRecord *) const override;
+        Fault initiateAcc(ExecContext *, Trace::InstRecord *) const override;
+        Fault completeAcc(PacketPtr, ExecContext *,
+                          Trace::InstRecord *) const override;
+    };
+}};
+
+def template VectorLoadStoreConstructor {{
+    %(class_name)s::%(class_name)s(ExtMachInst machInst):
+        %(base_class)s("%(mnemonic)s", machInst, %(op_class)s, 
+        (MEW<<3)|WIDTH, VM)
+    {
+        %(set_reg_idx_arr)s;
+        %(constructor)s;
+    }
+}};
+
+let {{
+    def VectorLoadStoreBase(name, Name, ea_code, memacc_code, 
+            mem_flags, inst_flags, base_class, postacc_code='', 
+            decode_template=BasicDecode, exec_template_base=''):
+        # Make sure flags are in lists (convert to lists if not).
+        mem_flags = makeList(mem_flags)
+        inst_flags = makeList(inst_flags)
+
+        iop = InstObjParams(name, Name, base_class,
+            {'ea_code': ea_code,
+            'memacc_code': memacc_code, 'postacc_code': postacc_code },
+            inst_flags)
+
+        if mem_flags:
+            mem_flags = [ 'Request::%s' % flag for flag in mem_flags ]
+            s = '\n\tthis->memAccessFlags = ' + '|'.join(mem_flags) + ';'
+            iop.constructor += s
+
+        # select templates
+        fullExecTemplate = eval(exec_template_base + 'Execute')
+        initiateAccTemplate = eval(exec_template_base + 'InitiateAcc')
+        completeAccTemplate = eval(exec_template_base + 'CompleteAcc')
+
+        # (header_output, decoder_output, decode_block, exec_output)
+        return (VectorLoadStoreDeclare.subst(iop),
+            VectorLoadStoreConstructor.subst(iop),
+            decode_template.subst(iop),
+            fullExecTemplate.subst(iop) +
+            initiateAccTemplate.subst(iop) +
+            completeAccTemplate.subst(iop))
+}};
+
+def template VectorLoadExecute {{
+    Fault %(class_name)s::execute(
+        ExecContext *xc, Trace::InstRecord *traceData) const
+    {
+        Addr EA;
+        Fault fault = NoFault;
+        auto tc = xc->tcBase();
+        size_t vl = RiscvStaticInst::getCurVL(tc);
+        
+        %(op_decl)s;
+        %(op_rd)s;
+        %(ea_code)s;
+
+        static const std::vector<bool> byte_enable(vl * this->sew, true);
+
+        STATUS status = xc->readMiscReg(MISCREG_STATUS);
+        if (status.vs == static_cast<int>(VPUStatus::OFF))
+            fault = std::make_shared<IllegalInstFault>("VPU is off", machInst);
+
+        if (fault == NoFault) {
+            fault = readMemAtomic(xc, EA, Mem.as<uint8_t>(), 
+                vl * this->sew, this->memAccessFlags, byte_enable);
+        }
+
+        if (fault == NoFault) {
+            const RiscvISA::vreg_t& tmp_v0 = tc->readVecReg(RegId(VecRegClass, 0));
+            auto v0 = tmp_v0.as<uint8_t>();
+            for (int i=0; i<vl; i++) {
+                if (vm || v0[i]) {
+                    %(memacc_code)s;
+                }
+            }
+            // %(op_wb)s;
+            xc->setVecRegOperand(this, 0, tmp_d0);
+        }
+
+        return fault;
+    }
+}};
+
+def template VectorLoadInitiateAcc {{
+    Fault %(class_name)s::initiateAcc(ExecContext *xc,
+        Trace::InstRecord *traceData) const
+    {
+        Addr EA;
+        Fault fault = NoFault;
+
+        %(op_src_decl)s;
+        %(op_rd)s;
+        %(ea_code)s;
+
+        return initiateMemRead(xc, traceData, EA, Mem, 
+            this->memAccessFlags);
+    }
+}};
+
+def template VectorLoadCompleteAcc {{
+    Fault %(class_name)s::completeAcc(PacketPtr pkt, ExecContext *xc,
+        Trace::InstRecord *traceData) const
+    {
+        Fault fault = NoFault;
+        auto tc = xc->tcBase();
+        size_t vl = RiscvStaticInst::getCurVL(tc);
+
+        %(op_decl)s;
+        %(op_rd)s;
+
+        
+        STATUS status = xc->readMiscReg(MISCREG_STATUS);
+        if (status.vs == static_cast<int>(VPUStatus::OFF))
+            fault = std::make_shared<IllegalInstFault>("VPU is off", machInst);
+
+        if (fault == NoFault) {
+            const RiscvISA::vreg_t& tmp_v0 = tc->readVecReg(RegId(VecRegClass, 0));
+            auto v0 = tmp_v0.as<uint8_t>();
+            memcpy(Mem.as<uint8_t>(), pkt->getPtr<uint8_t>(),
+                pkt->getSize());
+            for (int i=0; i<vl; i++) {
+                if (vm || v0[i]) {
+                    %(memacc_code)s;
+                }
+            }
+        }
+
+        if (fault == NoFault) {
+            %(op_wb)s;
+        }
+
+        return fault;
+    }
+}};
+
+def template VectorStoreExecute {{
+    Fault %(class_name)s::execute(
+        ExecContext *xc, Trace::InstRecord *traceData) const
+    {
+        Addr EA;
+        Fault fault = NoFault;
+        auto tc = xc->tcBase();
+        size_t vl = RiscvStaticInst::getCurVL(tc);
+        
+        %(op_decl)s;
+        %(op_rd)s;
+        %(ea_code)s;
+
+        static const std::vector<bool> byte_enable(vl * this->sew, true);
+
+        if (fault == NoFault) {
+            fault = readMemAtomic(xc, EA, Mem.as<uint8_t>(), 
+                vl * this->sew, this->memAccessFlags, byte_enable);
+        }
+
+        if (fault == NoFault) {
+            const RiscvISA::vreg_t& tmp_v0 = tc->readVecReg(RegId(VecRegClass, 0));
+            auto v0 = tmp_v0.as<uint8_t>();
+            for (int i=0; i<vl; i++) {
+                if (vm || v0[i]) {
+                    %(memacc_code)s;
+                }
+            }
+            fault = writeMemAtomic(xc, Mem.as<uint8_t>(), EA,
+                vl * this->sew, this->memAccessFlags, nullptr, byte_enable);
+        }
+
+        if (fault == NoFault) {
+            %(postacc_code)s;
+            %(op_wb)s;
+        }
+        
+        return fault;
+    }
+}};
+
+def template VectorStoreInitiateAcc {{
+    Fault %(class_name)s::initiateAcc(ExecContext *xc,
+        Trace::InstRecord *traceData) const
+    {
+        Addr EA;
+        Fault fault = NoFault;
+        auto tc = xc->tcBase();
+        size_t vl = RiscvStaticInst::getCurVL(tc);
+        STATUS status = xc->readMiscReg(MISCREG_STATUS);
+
+        %(op_src_decl)s;
+        %(op_rd)s;
+        %(ea_code)s;
+
+        static const std::vector<bool> byte_enable(vl * this->sew, true);
+
+        if (status.vs == static_cast<int>(VPUStatus::OFF))
+            fault = std::make_shared<IllegalInstFault>("VPU is off", machInst);
+        // read old data
+        if (fault == NoFault) {
+            fault = readMemAtomic(xc, EA, Mem.as<uint8_t>(), 
+                vl * this->sew, this->memAccessFlags, byte_enable);
+        }
+        if (fault == NoFault) {
+            const RiscvISA::vreg_t& tmp_v0 = tc->readVecReg(RegId(VecRegClass, 0));
+            auto v0 = tmp_v0.as<uint8_t>();
+            // update new data
+            for (int i=0; i<vl; i++) {
+                if (vm || v0[i]) {
+                    %(memacc_code)s;
+                }
+            }
+            Fault fault = writeMemAtomic(xc, Mem.as<uint8_t>(), EA,
+                vl * this->sew, this->memAccessFlags, nullptr, byte_enable);
+        }
+
+        %(op_wb)s;
+
+        return fault;
+    }
+}};
+
+def template VectorStoreCompleteAcc {{
+    Fault %(class_name)s::completeAcc(PacketPtr pkt, ExecContext *xc,
+        Trace::InstRecord *traceData) const
+    {
+        return NoFault;
+    }
+}};
+
+def format VMemLoad(
+    memacc_code, ea_code = {{EA = Rs1;}},
+    mem_flags=[], inst_flags=[]
+) {{
+    (header_output, decoder_output, decode_block, exec_output) = \
+        VectorLoadStoreBase(name, Name, ea_code, memacc_code, 
+        mem_flags, inst_flags, 'VectorLoad', exec_template_base='VectorLoad')
+}};
+
+def format VMemStore(
+    memacc_code, ea_code = {{EA = Rs1}}, 
+    mem_flags=[], inst_flags=[]
+) {{
+    (header_output, decoder_output, decode_block, exec_output) = \
+        VectorLoadStoreBase(name, Name, ea_code, memacc_code, 
+        mem_flags, inst_flags, 'VectorStore', exec_template_base='VectorStore')
 }};

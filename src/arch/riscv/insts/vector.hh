@@ -51,21 +51,57 @@ class VConfOp : public RiscvStaticInst
         Addr pc, const loader::SymbolTable *symtab) const override;
 };
 
+class VectorLoadStore : public RiscvStaticInst
+{
+  protected:
+    uint64_t sew;
+    bool vm;
+    Request::Flags memAccessFlags;
+    VectorLoadStore(const char *mnem, MachInst _machInst, OpClass __opClass,
+        uint64_t _width, bool _vm)
+        : RiscvStaticInst(mnem, _machInst, __opClass),
+        vm(_vm)
+    {
+        switch (_width)
+        {
+        case 0x0        : sew = 8; break;
+        case 0x5 ... 0x7: sew = 8 << (_width - 4); break;
+        default:
+            panic("not supported vector load width %d", _width);
+            break;
+        }
+    }
+};
+
 /**
  * Base class for Vector Load operations
  */
-class VMemLoadOp : public RiscvStaticInst
+class VectorLoad : public VectorLoadStore
 {
   protected:
-    VMemLoadOp(const char *mnem, MachInst _machInst, OpClass __opClass)
-        : RiscvStaticInst(mnem, _machInst, __opClass)
-    {}
 
+    VectorLoad(const char *mnem, MachInst _machInst, OpClass __opClass,
+        uint64_t _width, bool _vm)
+        : VectorLoadStore(mnem, _machInst, __opClass, _width, _vm)
+        {}
     std::string generateDisassembly(
         Addr pc, const loader::SymbolTable *symtab) const override;
 };
 
-
+/**
+ * Base class for Vector Store operations
+ */
+class VectorStore : public VectorLoadStore
+{
+  protected:
+    bool vm;
+    VectorStore(const char *mnem, MachInst _machInst, OpClass __opClass,
+        uint64_t _width, bool _vm)
+        : VectorLoadStore(mnem, _machInst, __opClass, _width, _vm)
+        {}
+    std::string generateDisassembly(
+        Addr pc, const loader::SymbolTable *symtab) const override;
+};
 } // namespace RiscvISA
 } // namespace gem5
 

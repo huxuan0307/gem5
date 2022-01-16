@@ -419,6 +419,43 @@ decode QUADRANT default Unknown::unknown() {
                     Fd_bits = fd.v;
                 }}, inst_flags=FloatMemReadOp);
             }
+            
+            0x0: decode MOP {
+                0x0: decode LUMOP {
+                    format VMemLoad {
+                        0x00: vle8_v({{
+                            Vd_ub[i] = Mem_vc.as<uint8_t>()[i];
+                        }});
+                    }
+                }
+            }
+            0x5: decode MOP {
+                0x0: decode LUMOP {
+                    format VMemLoad {
+                        0x00: vle16_v({{
+                            Vd_uh[i] = Mem_vc.as<uint16_t>()[i];
+                        }});
+                    }
+                }
+            }
+            0x6: decode MOP {
+                0x0: decode LUMOP {
+                    format VMemLoad {
+                        0x00: vle32_v({{
+                            Vd_uw[i] = Mem_vc.as<uint32_t>()[i];
+                        }});
+                    }
+                }
+            }
+            0x7: decode MOP {
+                0x0: decode LUMOP {
+                    format VMemLoad {
+                        0x00: vle64_v({{
+                            Vd_ud[i] = Mem_vc.as<uint64_t>()[i];
+                        }});
+                    }
+                }
+            }
         }
 
         0x03: decode FUNCT3 {
@@ -522,6 +559,43 @@ decode QUADRANT default Unknown::unknown() {
 
                     Mem_ud = Fs2_bits;
                 }}, inst_flags=FloatMemWriteOp);
+            }
+
+            0x0: decode MOP {
+                0x0: decode SUMOP { 
+                    format VMemStore {
+                        0x00: vse8_v({{
+                            Mem_vc.as<uint8_t>()[i] = Vd_ub[i];
+                        }});
+                    }
+                }
+            }
+            0x5: decode MOP {
+                0x0: decode SUMOP { 
+                    format VMemStore {
+                        0x00: vse16_v({{
+                            Mem_vc.as<uint16_t>()[i] = Vd_uh[i];
+                        }});
+                    }
+                }
+            }
+            0x6: decode MOP {
+                0x0: decode SUMOP { 
+                    format VMemStore {
+                        0x00: vse32_v({{
+                            Mem_vc.as<uint32_t>()[i] = Vd_uw[i];
+                        }});
+                    }
+                }
+            }
+            0x7: decode MOP {
+                0x0: decode SUMOP { 
+                    format VMemStore {
+                        0x00: vse64_v({{
+                            Mem_vc.as<uint64_t>()[i] = Vd_ud[i];
+                        }});
+                    }
+                }
             }
         }
 
@@ -1303,17 +1377,20 @@ decode QUADRANT default Unknown::unknown() {
             0x7: decode BIT31 {
                 format VConfOp {
                     0x0: vsetvli({{
-                        rs1 = srcRegIdx(1).index();
+                        rs1 = srcRegIdx(0).index();
                         vtype = zimm;
+                        Rd = 0;Rs1;
                     }}, VectorConfOp);
                     0x1: decode BIT30 {
                         0x0: vsetvl({{
-                            rs1 = srcRegIdx(1).index();
+                            rs1 = srcRegIdx(0).index();
                             vtype = Rs2_ud;
+                            Rd = 0;Rs1;
                         }}, VectorConfOp);
                         0x1: vsetivli({{
                             rs1 = uimm;
                             vtype = zimm;
+                            Rd = 0;Rs1;
                         }}, VectorConfOp);
                     }
                 }

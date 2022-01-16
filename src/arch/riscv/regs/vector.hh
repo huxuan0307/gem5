@@ -19,6 +19,7 @@ using VecElem = uint64_t;
 constexpr size_t VLEN = NumVecElemPerVecReg * sizeof(VecElem);
 using VecRegContainer =
     gem5::VecRegContainer<VLEN>;
+using vreg_t = VecRegContainer;
 
 using VecPredReg =
     gem5::VecPredRegT<VecElem, NumVecElemPerVecReg, false, false>;

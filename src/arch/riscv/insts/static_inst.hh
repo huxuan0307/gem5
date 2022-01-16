@@ -33,12 +33,12 @@
 #include <string>
 
 #include "arch/riscv/pcstate.hh"
+#include "arch/riscv/regs/misc.hh"
 #include "arch/riscv/types.hh"
 #include "cpu/exec_context.hh"
 #include "cpu/static_inst.hh"
 #include "cpu/thread_context.hh"
 #include "mem/packet.hh"
-
 namespace gem5
 {
 
@@ -88,6 +88,12 @@ class RiscvStaticInst : public StaticInst
     asBytes(void *buf, size_t size) override
     {
         return simpleAsBytes(buf, size, machInst);
+    }
+
+    static size_t
+    getCurVL(ThreadContext *tc)
+    {
+        return tc->readMiscReg(MISCREG_VL);
     }
 };
 

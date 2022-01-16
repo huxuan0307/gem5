@@ -42,7 +42,17 @@ VConfOp::generateDisassembly(Addr pc, const loader::SymbolTable *symtab) const
 }
 
 std::string
-VMemLoadOp::generateDisassembly(
+VectorLoad::generateDisassembly(
+    Addr pc, const loader::SymbolTable *symtab) const
+{
+    std::stringstream ss;
+    ss << mnemonic << ' ' << registerName(destRegIdx(0)) << ", (" <<
+        registerName(srcRegIdx(0)) << ")";
+    return ss.str();
+}
+
+std::string
+VectorStore::generateDisassembly(
     Addr pc, const loader::SymbolTable *symtab) const
 {
     std::stringstream ss;

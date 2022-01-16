@@ -179,7 +179,7 @@ class MinorDefaultMiscFU(MinorFU):
 # FIXME: fix latency
 class MinorDefaultVecFU(MinorFU):
     opClasses = minorMakeOpClassSet(['VectorConf', 'VectorInt',
-                                     'VectorMemLoad'])
+                                     'VectorMemLoad', 'VectorMemStore'])
     opLat = 1
 
 class MinorDefaultFUPool(MinorFUPool):
