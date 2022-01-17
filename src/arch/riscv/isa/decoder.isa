@@ -422,37 +422,37 @@ decode QUADRANT default Unknown::unknown() {
             
             0x0: decode MOP {
                 0x0: decode LUMOP {
-                    format VMemLoad {
+                    format VMemLoadOp {
                         0x00: vle8_v({{
                             Vd_ub[i] = Mem_vc.as<uint8_t>()[i];
-                        }});
+                        }}, inst_flags=VectorMemLoadOp);
                     }
                 }
             }
             0x5: decode MOP {
                 0x0: decode LUMOP {
-                    format VMemLoad {
+                    format VMemLoadOp {
                         0x00: vle16_v({{
                             Vd_uh[i] = Mem_vc.as<uint16_t>()[i];
-                        }});
+                        }}, inst_flags=VectorMemLoadOp);
                     }
                 }
             }
             0x6: decode MOP {
                 0x0: decode LUMOP {
-                    format VMemLoad {
+                    format VMemLoadOp {
                         0x00: vle32_v({{
                             Vd_uw[i] = Mem_vc.as<uint32_t>()[i];
-                        }});
+                        }}, inst_flags=VectorMemLoadOp);
                     }
                 }
             }
             0x7: decode MOP {
                 0x0: decode LUMOP {
-                    format VMemLoad {
+                    format VMemLoadOp {
                         0x00: vle64_v({{
                             Vd_ud[i] = Mem_vc.as<uint64_t>()[i];
-                        }});
+                        }}, inst_flags=VectorMemLoadOp);
                     }
                 }
             }
@@ -563,37 +563,37 @@ decode QUADRANT default Unknown::unknown() {
 
             0x0: decode MOP {
                 0x0: decode SUMOP { 
-                    format VMemStore {
+                    format VMemStoreOp {
                         0x00: vse8_v({{
                             Mem_vc.as<uint8_t>()[i] = Vd_ub[i];
-                        }});
+                        }}, inst_flags=VectorMemStoreOp);
                     }
                 }
             }
             0x5: decode MOP {
                 0x0: decode SUMOP { 
-                    format VMemStore {
+                    format VMemStoreOp {
                         0x00: vse16_v({{
                             Mem_vc.as<uint16_t>()[i] = Vd_uh[i];
-                        }});
+                        }}, inst_flags=VectorMemStoreOp);
                     }
                 }
             }
             0x6: decode MOP {
                 0x0: decode SUMOP { 
-                    format VMemStore {
+                    format VMemStoreOp {
                         0x00: vse32_v({{
                             Mem_vc.as<uint32_t>()[i] = Vd_uw[i];
-                        }});
+                        }}, inst_flags=VectorMemStoreOp);
                     }
                 }
             }
             0x7: decode MOP {
                 0x0: decode SUMOP { 
-                    format VMemStore {
+                    format VMemStoreOp {
                         0x00: vse64_v({{
                             Mem_vc.as<uint64_t>()[i] = Vd_ud[i];
-                        }});
+                        }}, inst_flags=VectorMemStoreOp);
                     }
                 }
             }

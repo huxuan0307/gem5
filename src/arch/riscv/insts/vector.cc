@@ -42,7 +42,7 @@ VConfOp::generateDisassembly(Addr pc, const loader::SymbolTable *symtab) const
 }
 
 std::string
-VectorLoad::generateDisassembly(
+VMemLoadOp::generateDisassembly(
     Addr pc, const loader::SymbolTable *symtab) const
 {
     std::stringstream ss;
@@ -52,7 +52,7 @@ VectorLoad::generateDisassembly(
 }
 
 std::string
-VectorStore::generateDisassembly(
+VMemStoreOp::generateDisassembly(
     Addr pc, const loader::SymbolTable *symtab) const
 {
     std::stringstream ss;

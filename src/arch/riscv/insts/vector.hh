@@ -51,13 +51,13 @@ class VConfOp : public RiscvStaticInst
         Addr pc, const loader::SymbolTable *symtab) const override;
 };
 
-class VectorLoadStore : public RiscvStaticInst
+class VMemLoadStoreOp : public RiscvStaticInst
 {
   protected:
     uint64_t sew;
     bool vm;
     Request::Flags memAccessFlags;
-    VectorLoadStore(const char *mnem, MachInst _machInst, OpClass __opClass,
+    VMemLoadStoreOp(const char *mnem, MachInst _machInst, OpClass __opClass,
         uint64_t _width, bool _vm)
         : RiscvStaticInst(mnem, _machInst, __opClass),
         vm(_vm)
@@ -76,13 +76,13 @@ class VectorLoadStore : public RiscvStaticInst
 /**
  * Base class for Vector Load operations
  */
-class VectorLoad : public VectorLoadStore
+class VMemLoadOp : public VMemLoadStoreOp
 {
   protected:
 
-    VectorLoad(const char *mnem, MachInst _machInst, OpClass __opClass,
+    VMemLoadOp(const char *mnem, MachInst _machInst, OpClass __opClass,
         uint64_t _width, bool _vm)
-        : VectorLoadStore(mnem, _machInst, __opClass, _width, _vm)
+        : VMemLoadStoreOp(mnem, _machInst, __opClass, _width, _vm)
         {}
     std::string generateDisassembly(
         Addr pc, const loader::SymbolTable *symtab) const override;
@@ -91,13 +91,13 @@ class VectorLoad : public VectorLoadStore
 /**
  * Base class for Vector Store operations
  */
-class VectorStore : public VectorLoadStore
+class VMemStoreOp : public VMemLoadStoreOp
 {
   protected:
     bool vm;
-    VectorStore(const char *mnem, MachInst _machInst, OpClass __opClass,
+    VMemStoreOp(const char *mnem, MachInst _machInst, OpClass __opClass,
         uint64_t _width, bool _vm)
-        : VectorLoadStore(mnem, _machInst, __opClass, _width, _vm)
+        : VMemLoadStoreOp(mnem, _machInst, __opClass, _width, _vm)
         {}
     std::string generateDisassembly(
         Addr pc, const loader::SymbolTable *symtab) const override;
