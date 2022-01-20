@@ -79,7 +79,6 @@ class VMemLoadStoreOp : public RiscvStaticInst
 class VMemLoadOp : public VMemLoadStoreOp
 {
   protected:
-
     VMemLoadOp(const char *mnem, MachInst _machInst, OpClass __opClass,
         uint64_t _width, bool _vm)
         : VMemLoadStoreOp(mnem, _machInst, __opClass, _width, _vm)
@@ -94,7 +93,6 @@ class VMemLoadOp : public VMemLoadStoreOp
 class VMemStoreOp : public VMemLoadStoreOp
 {
   protected:
-    bool vm;
     VMemStoreOp(const char *mnem, MachInst _machInst, OpClass __opClass,
         uint64_t _width, bool _vm)
         : VMemLoadStoreOp(mnem, _machInst, __opClass, _width, _vm)

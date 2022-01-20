@@ -40,32 +40,7 @@ def template VConfExecute {{
     {
         %(op_decl)s;
         %(op_rd)s;
-
-        uint64_t rd = destRegIdx(0).index();
-
-        // Assigned in code block
-        uint64_t rs1;
-        uint64_t vtype;
         %(code)s;
-
-        uint64_t avl;
-        if (rd == 0 && rs1 == 0) {
-            avl = xc->readMiscReg(MISCREG_VL);
-        } else if (rs1 == 0) {
-            avl = std::numeric_limits<uint64_t>::max();
-        } else {
-            avl = Rs1;
-        }
-
-        uint64_t VLMAX = LMUL(vtype) *
-                            (uint64_t)gem5::RiscvISA::VLEN / SEW(vtype);
-        uint64_t vl = VLMAX;
-        if (avl <= VLMAX) {
-            vl = avl;
-        }
-
-        Rd = vl;
-
         xc->setMiscReg(MISCREG_VL, vl);
         xc->setMiscReg(MISCREG_VTYPE, vtype);
         %(op_wb)s;
@@ -94,8 +69,7 @@ def template VIntExecute {{
                         %(code)s;
                     }
                 }
-                // %(op_wb)s;
-                xc->setVecRegOperand(this, 0, tmp_d0);
+                %(op_wb)s;
                 break;
             }
             case 16: {
@@ -108,8 +82,7 @@ def template VIntExecute {{
                         %(code)s;
                     }
                 }
-                // %(op_wb)s;
-                xc->setVecRegOperand(this, 0, tmp_d0);
+                %(op_wb)s;
                 break;
             }
             case 32: {
@@ -122,8 +95,7 @@ def template VIntExecute {{
                         %(code)s;
                     }
                 }
-                // %(op_wb)s;
-                xc->setVecRegOperand(this, 0, tmp_d0);
+                %(op_wb)s;
                 break;
             }
             case 64: {
@@ -136,8 +108,7 @@ def template VIntExecute {{
                         %(code)s;
                     }
                 }
-                // %(op_wb)s;
-                xc->setVecRegOperand(this, 0, tmp_d0);
+                %(op_wb)s;
                 break;
             }
             default:
@@ -262,8 +233,7 @@ def template VMemLoadExecute {{
                     %(memacc_code)s;
                 }
             }
-            // %(op_wb)s;
-            xc->setVecRegOperand(this, 0, tmp_d0);
+            %(op_wb)s;
         }
 
         return fault;
@@ -358,7 +328,7 @@ def template VMemStoreExecute {{
             %(postacc_code)s;
             %(op_wb)s;
         }
-        
+
         return fault;
     }
 }};
@@ -423,7 +393,7 @@ def format VMemLoadOp (
 }};
 
 def format VMemStoreOp (
-    memacc_code, ea_code = {{EA = Rs1}},
+    memacc_code, ea_code = {{EA = Rs1;}},
     mem_flags=[], inst_flags=[]
 ) {{
     (header_output, decoder_output, decode_block, exec_output) = \
