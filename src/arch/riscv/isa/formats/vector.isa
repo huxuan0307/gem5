@@ -1,6 +1,7 @@
 output exec {{
     uint64_t
-    SEW(const uint64_t vtype) {
+    SEW(const uint64_t vtype)
+    {
         uint8_t vsew = bits(vtype, 5, 3);
         uint64_t result;
         switch (vsew) {
@@ -16,7 +17,8 @@ output exec {{
     }
 
     uint64_t
-    LMUL(const uint64_t vtype) {
+    LMUL(const uint64_t vtype)
+    {
         uint8_t vlmul = bits(vtype, 2, 0);
         uint64_t result;
         switch (vlmul) {
@@ -29,6 +31,19 @@ output exec {{
         }
 
         return result;
+    }
+
+    /*
+     *  Spec Section 4.5
+     *  Ref:
+     *  https://github.com/qemu/qemu/blob/c7d773ae/target/riscv/vector_helper.c
+    */
+    int
+    elem_mask(const uint64_t *v0, const int index)
+    {
+        int idx = index / 64;
+        int pos = index % 64;
+        return (v0[idx] >> pos) & 1;
     }
 }};
 
@@ -57,15 +72,15 @@ def template VIntExecute {{
         uint64_t vtype = xc->readMiscReg(MISCREG_VTYPE);
         auto tc = xc->tcBase();
         const RiscvISA::vreg_t& tmp_v0 = tc->readVecReg(RegId(VecRegClass, 0));
+        auto v0 = tmp_v0.as<uint64_t>();
 
         switch (SEW(vtype)) {
             case 8: {
                 using vi = int8_t;
                 %(op_decl)s;
                 %(op_rd)s;
-                auto v0 = tmp_v0.as<vi>();
                 for (unsigned i = 0; i < vl; i++) {
-                    if(vm || v0[i]) {
+                    if(vm || elem_mask(v0, i)) {
                         %(code)s;
                     }
                 }
@@ -76,9 +91,8 @@ def template VIntExecute {{
                 using vi = int16_t;
                 %(op_decl)s;
                 %(op_rd)s;
-                auto v0 = tmp_v0.as<vi>();
                 for (unsigned i = 0; i < vl; i++) {
-                    if(vm || v0[i]) {
+                    if(vm || elem_mask(v0, i)) {
                         %(code)s;
                     }
                 }
@@ -89,9 +103,8 @@ def template VIntExecute {{
                 using vi = int32_t;
                 %(op_decl)s;
                 %(op_rd)s;
-                auto v0 = tmp_v0.as<vi>();
                 for (unsigned i = 0; i < vl; i++) {
-                    if(vm || v0[i]) {
+                    if(vm || elem_mask(v0, i)) {
                         %(code)s;
                     }
                 }
@@ -102,9 +115,8 @@ def template VIntExecute {{
                 using vi = int64_t;
                 %(op_decl)s;
                 %(op_rd)s;
-                auto v0 = tmp_v0.as<vi>();
                 for (unsigned i = 0; i < vl; i++) {
-                    if(vm || v0[i]) {
+                    if(vm || elem_mask(v0, i)) {
                         %(code)s;
                     }
                 }
@@ -227,9 +239,9 @@ def template VMemLoadExecute {{
 
         if (fault == NoFault) {
             const RiscvISA::vreg_t& tmp_v0 = tc->readVecReg(RegId(VecRegClass, 0));
-            auto v0 = tmp_v0.as<uint8_t>();
-            for (int i=0; i<vl; i++) {
-                if (vm || v0[i]) {
+            auto v0 = tmp_v0.as<uint64_t>();
+            for (int i = 0; i < vl; i++) {
+                if (vm == 1 || elem_mask(v0, i)) {
                     %(memacc_code)s;
                 }
             }
@@ -273,12 +285,13 @@ def template VMemLoadCompleteAcc {{
             fault = std::make_shared<IllegalInstFault>("VPU is off", machInst);
 
         if (fault == NoFault) {
-            const RiscvISA::vreg_t& tmp_v0 = tc->readVecReg(RegId(VecRegClass, 0));
-            auto v0 = tmp_v0.as<uint8_t>();
             memcpy(Mem.as<uint8_t>(), pkt->getPtr<uint8_t>(),
                 pkt->getSize());
-            for (int i=0; i<vl; i++) {
-                if (vm || v0[i]) {
+            const RiscvISA::vreg_t& tmp_v0 =
+                tc->readVecReg(RegId(VecRegClass, 0));
+            auto v0 = tmp_v0.as<uint64_t>();
+            for (int i = 0; i < vl; i++) {
+                if (vm == 1 || elem_mask(v0, i)) {
                     %(memacc_code)s;
                 }
             }
@@ -314,9 +327,9 @@ def template VMemStoreExecute {{
 
         if (fault == NoFault) {
             const RiscvISA::vreg_t& tmp_v0 = tc->readVecReg(RegId(VecRegClass, 0));
-            auto v0 = tmp_v0.as<uint8_t>();
-            for (int i=0; i<vl; i++) {
-                if (vm || v0[i]) {
+            auto v0 = tmp_v0.as<uint64_t>();
+            for (int i = 0; i < vl; i++) {
+                if (vm == 1 || elem_mask(v0, i)) {
                     %(memacc_code)s;
                 }
             }
@@ -358,10 +371,9 @@ def template VMemStoreInitiateAcc {{
         }
         if (fault == NoFault) {
             const RiscvISA::vreg_t& tmp_v0 = tc->readVecReg(RegId(VecRegClass, 0));
-            auto v0 = tmp_v0.as<uint8_t>();
-            // update new data
-            for (int i=0; i<vl; i++) {
-                if (vm || v0[i]) {
+            auto v0 = tmp_v0.as<uint64_t>();
+            for (int i = 0; i < vl; i++) {
+                if (vm == 1 || elem_mask(v0, i)) {
                     %(memacc_code)s;
                 }
             }
