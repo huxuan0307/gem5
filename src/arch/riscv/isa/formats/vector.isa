@@ -3,7 +3,7 @@ output exec {{
     SEW(const uint64_t vtype)
     {
         uint8_t vsew = bits(vtype, 5, 3);
-        uint64_t result;
+        uint64_t result = 0;
         switch (vsew) {
         case 0: result = 8; break;
         case 1: result = 16; break;
@@ -20,7 +20,7 @@ output exec {{
     LMUL(const uint64_t vtype)
     {
         uint8_t vlmul = bits(vtype, 2, 0);
-        uint64_t result;
+        uint64_t result = 0;
         switch (vlmul) {
         case 0: result = 1; break;
         case 1: result = 2; break;
@@ -58,6 +58,7 @@ def template VConfExecute {{
         %(code)s;
         xc->setMiscReg(MISCREG_VL, vl);
         xc->setMiscReg(MISCREG_VTYPE, vtype);
+        xc->setMiscReg(MISCREG_VSTART, 0);
         %(op_wb)s;
         return NoFault;
     }
@@ -221,12 +222,12 @@ def template VMemLoadExecute {{
         Fault fault = NoFault;
         auto tc = xc->tcBase();
         size_t vl = RiscvStaticInst::getCurVL(tc);
-        
+
         %(op_decl)s;
         %(op_rd)s;
         %(ea_code)s;
 
-        static const std::vector<bool> byte_enable(vl * this->sew, true);
+        const std::vector<bool> byte_enable(vl * this->sew, true);
 
         STATUS status = xc->readMiscReg(MISCREG_STATUS);
         if (status.vs == static_cast<int>(VPUStatus::OFF))
@@ -318,7 +319,7 @@ def template VMemStoreExecute {{
         %(op_rd)s;
         %(ea_code)s;
 
-        static const std::vector<bool> byte_enable(vl * this->sew, true);
+        const std::vector<bool> byte_enable(vl * this->sew, true);
 
         if (fault == NoFault) {
             fault = readMemAtomic(xc, EA, Mem.as<uint8_t>(), 
@@ -360,7 +361,7 @@ def template VMemStoreInitiateAcc {{
         %(op_rd)s;
         %(ea_code)s;
 
-        static const std::vector<bool> byte_enable(vl * this->sew, true);
+        const std::vector<bool> byte_enable(vl * this->sew, true);
 
         if (status.vs == static_cast<int>(VPUStatus::OFF))
             fault = std::make_shared<IllegalInstFault>("VPU is off", machInst);
