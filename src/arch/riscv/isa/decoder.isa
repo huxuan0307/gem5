@@ -1348,14 +1348,24 @@ decode QUADRANT default Unknown::unknown() {
         }
 
         0x15: decode FUNCT3 {
-            0x0: decode VFUNCT6 {
-                format VIntOp {
+            format VIntOp {
+                // OPIVV
+                0x0: decode VFUNCT6 {
                     0x0: vadd_vv({{
                         Vd_vi[i] = Vs1_vi[i] + Vs2_vi[i];
                     }}, VectorIntOp);
                     0x2: vsub_vv({{
-                        Vd_vi[i] = Vs1_vi[i] - Vs2_vi[i];
+                        Vd_vi[i] = Vs2_vi[i] - Vs1_vi[i];
                     }}, VectorIntOp);
+                }
+                // OPIVX
+                0x4: decode VFUNCT6 {
+                    0x0: vadd_vx({{
+                        Vd_vi[i] = Vs2_vi[i] + Rs1_vi;
+                    }});
+                    0x2: vsub_vx({{
+                        Vd_vi[i] = Vs2_vi[i] - Rs1_vi;
+                    }});
                 }
             }
             0x7: decode BIT31 {
