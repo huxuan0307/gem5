@@ -1364,10 +1364,7 @@ decode QUADRANT default Unknown::unknown() {
                         uint64_t rd_index = destRegIdx(0).index();
                         uint64_t rs1_index = srcRegIdx(0).index();
                         uint64_t vtype = zimm;
-
-                        uint64_t VLMAX =
-                            LMUL(vtype) *
-                            (uint64_t)gem5::RiscvISA::VLEN / SEW(vtype);
+                        uint64_t vlmax = VLMAX(vtype);
 
                         uint64_t avl;
                         if (rd_index == 0 && rs1_index == 0) {
@@ -1378,8 +1375,8 @@ decode QUADRANT default Unknown::unknown() {
                             avl = Rs1_ud;
                         }
 
-                        uint64_t vl = VLMAX;
-                        if (avl <= VLMAX) {
+                        uint64_t vl = vlmax;
+                        if (avl <= vlmax) {
                             vl = avl;
                         }
 
@@ -1390,10 +1387,7 @@ decode QUADRANT default Unknown::unknown() {
                             uint64_t rd_index = destRegIdx(0).index();
                             uint64_t rs1_index = srcRegIdx(0).index();
                             uint64_t vtype = Rs2_ud;
-
-                            uint64_t VLMAX =
-                                LMUL(vtype) *
-                                (uint64_t)gem5::RiscvISA::VLEN / SEW(vtype);
+                            uint64_t vlmax = VLMAX(vtype);
 
                             uint64_t avl;
                             if (rd_index == 0 && rs1_index == 0) {
@@ -1404,8 +1398,8 @@ decode QUADRANT default Unknown::unknown() {
                                 avl = Rs1_ud;
                             }
 
-                            uint64_t vl = VLMAX;
-                            if (avl <= VLMAX) {
+                            uint64_t vl = vlmax;
+                            if (avl <= vlmax) {
                                 vl = avl;
                             }
 
@@ -1414,12 +1408,10 @@ decode QUADRANT default Unknown::unknown() {
                         0x1: vsetivli({{
                             uint64_t avl = uimm;
                             uint64_t vtype = zimm;
-                            uint64_t VLMAX =
-                                LMUL(vtype) *
-                                (uint64_t)gem5::RiscvISA::VLEN / SEW(vtype);
+                            uint64_t vlmax = VLMAX(vtype);
 
-                            uint64_t vl = VLMAX;
-                            if (avl <= VLMAX) {
+                            uint64_t vl = vlmax;
+                            if (avl <= vlmax) {
                                 vl = avl;
                             }
 

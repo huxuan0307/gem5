@@ -2,35 +2,15 @@ output exec {{
     uint64_t
     SEW(const uint64_t vtype)
     {
-        uint8_t vsew = bits(vtype, 5, 3);
-        uint64_t result = 0;
-        switch (vsew) {
-        case 0: result = 8; break;
-        case 1: result = 16; break;
-        case 2: result = 32; break;
-        case 3: result = 64; break;
-        default:
-            panic("invalid SEW");
-        }
-
-        return result;
+        return 8 << bits(vtype, 5, 3);
     }
 
     uint64_t
-    LMUL(const uint64_t vtype)
+    VLMAX(const uint64_t vtype)
     {
-        uint8_t vlmul = bits(vtype, 2, 0);
-        uint64_t result = 0;
-        switch (vlmul) {
-        case 0: result = 1; break;
-        case 1: result = 2; break;
-        case 2: result = 4; break;
-        case 3: result = 8; break;
-        default:
-            panic("invalid LMUL");
-        }
-
-        return result;
+        int64_t vlmul = (int64_t)sext<3>(bits(vtype, 2, 0));
+        int64_t vsew = bits(vtype, 5, 3);
+        return gem5::RiscvISA::VLEN >> (vsew + 3 - vlmul);
     }
 
     /*
@@ -45,6 +25,11 @@ output exec {{
         int pos = index % 64;
         return (v0[idx] >> pos) & 1;
     }
+
+    void set_vill(uint64_t& vtype)
+    {
+        vtype = 0x80000000;
+    }
 }};
 
 
@@ -56,6 +41,11 @@ def template VConfExecute {{
         %(op_decl)s;
         %(op_rd)s;
         %(code)s;
+
+        if (vlmax == 0) {
+            set_vill(vtype);
+            vl = 0;
+        }
         xc->setMiscReg(MISCREG_VL, vl);
         xc->setMiscReg(MISCREG_VTYPE, vtype);
         xc->setMiscReg(MISCREG_VSTART, 0);
