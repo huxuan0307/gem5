@@ -1361,9 +1361,25 @@ decode QUADRANT default Unknown::unknown() {
                         Vd_vu[i] = Vs2_vu[i] < Vs1_vu[i] ?
                                         Vs2_vu[i] : Vs1_vu[i];
                     }}, VectorIntOp);
+                    0x5: vmin_vv({{
+                        Vd_vi[i] = Vs2_vi[i] < Vs1_vi[i] ?
+                                        Vs2_vi[i] : Vs1_vi[i];
+                    }}, VectorIntOp);
                     0x6: vmaxu_vv({{
                         Vd_vu[i] = Vs2_vu[i] > Vs1_vu[i] ?
                                         Vs2_vu[i] : Vs1_vu[i];
+                    0x7: vmax_vv({{
+                        Vd_vi[i] = Vs2_vi[i] > Vs1_vi[i] ?
+                                        Vs2_vi[i] : Vs1_vi[i];
+                    }}, VectorIntOp);
+                    0x9: vand_vv({{
+                        Vd_vi[i] = Vs2_vi[i] & Vs1_vi[i];
+                    }}, VectorIntOp);
+                    0xa: vor_vv({{
+                        Vd_vi[i] = Vs2_vi[i] | Vs1_vi[i];
+                    }}, VectorIntOp);
+                    0xb: vxor_vv({{
+                        Vd_vi[i] = Vs2_vi[i] ^ Vs1_vi[i];
                     }}, VectorIntOp);
                 }
                 // OPIVX
