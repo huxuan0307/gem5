@@ -1352,51 +1352,104 @@ decode QUADRANT default Unknown::unknown() {
                 // OPIVV
                 0x0: decode VFUNCT6 {
                     0x0: vadd_vv({{
-                        Vd_vi[i] = Vs2_vi[i] + Vs1_vi[i];
+                        for (unsigned i = 0; i < vl; i++) {
+                            if(vm || elem_mask(v0, i)) {
+                                Vd_vi[i] = Vs2_vi[i] + Vs1_vi[i];
+                            }
+                        }
                     }}, VectorIntOp);
                     0x2: vsub_vv({{
-                        Vd_vi[i] = Vs2_vi[i] - Vs1_vi[i];
+                        for (unsigned i = 0; i < vl; i++) {
+                            if(vm || elem_mask(v0, i)) {
+                                Vd_vi[i] = Vs2_vi[i] - Vs1_vi[i];
+                            }
+                        }
                     }}, VectorIntOp);
                     0x4: vminu_vv({{
-                        Vd_vu[i] = Vs2_vu[i] < Vs1_vu[i] ?
-                                        Vs2_vu[i] : Vs1_vu[i];
+                        for (unsigned i = 0; i < vl; i++) {
+                            if(vm || elem_mask(v0, i)) {
+                                Vd_vu[i] = Vs2_vu[i] < Vs1_vu[i] ?
+                                    Vs2_vu[i] : Vs1_vu[i];
+                            }
+                        }
                     }}, VectorIntOp);
                     0x5: vmin_vv({{
-                        Vd_vi[i] = Vs2_vi[i] < Vs1_vi[i] ?
-                                        Vs2_vi[i] : Vs1_vi[i];
+                        for (unsigned i = 0; i < vl; i++) {
+                            if(vm || elem_mask(v0, i)) {
+                                Vd_vi[i] = Vs2_vi[i] < Vs1_vi[i] ?
+                                    Vs2_vi[i] : Vs1_vi[i];
+                            }
+                        }
                     }}, VectorIntOp);
                     0x6: vmaxu_vv({{
-                        Vd_vu[i] = Vs2_vu[i] > Vs1_vu[i] ?
-                                        Vs2_vu[i] : Vs1_vu[i];
+                        for (unsigned i = 0; i < vl; i++) {
+                            if(vm || elem_mask(v0, i)) {
+                                Vd_vu[i] = Vs2_vu[i] > Vs1_vu[i] ?
+                                    Vs2_vu[i] : Vs1_vu[i];
+                            }
+                        }
+                    }}, VectorIntOp);
                     0x7: vmax_vv({{
-                        Vd_vi[i] = Vs2_vi[i] > Vs1_vi[i] ?
-                                        Vs2_vi[i] : Vs1_vi[i];
+                        for (unsigned i = 0; i < vl; i++) {
+                            if(vm || elem_mask(v0, i)) {
+                                Vd_vi[i] = Vs2_vi[i] > Vs1_vi[i] ?
+                                    Vs2_vi[i] : Vs1_vi[i];
+                            }
+                        }
                     }}, VectorIntOp);
                     0x9: vand_vv({{
-                        Vd_vi[i] = Vs2_vi[i] & Vs1_vi[i];
+                        for (unsigned i = 0; i < vl; i++) {
+                            if(vm || elem_mask(v0, i)) {
+                                Vd_vi[i] = Vs2_vi[i] & Vs1_vi[i];
+                            }
+                        }
                     }}, VectorIntOp);
                     0xa: vor_vv({{
-                        Vd_vi[i] = Vs2_vi[i] | Vs1_vi[i];
+                        for (unsigned i = 0; i < vl; i++) {
+                            if(vm || elem_mask(v0, i)) {
+                                Vd_vi[i] = Vs2_vi[i] | Vs1_vi[i];
+                            }
+                        }
                     }}, VectorIntOp);
                     0xb: vxor_vv({{
-                        Vd_vi[i] = Vs2_vi[i] ^ Vs1_vi[i];
+                        for (unsigned i = 0; i < vl; i++) {
+                            if(vm || elem_mask(v0, i)) {
+                                Vd_vi[i] = Vs2_vi[i] ^ Vs1_vi[i];
+                            }
+                        }
                     }}, VectorIntOp);
                 }
                 // OPIVX
                 0x4: decode VFUNCT6 {
                     0x0: vadd_vx({{
-                        Vd_vi[i] = Vs2_vi[i] + Rs1_vi;
+                        for (unsigned i = 0; i < vl; i++) {
+                            if(vm || elem_mask(v0, i)) {
+                                Vd_vi[i] = Vs2_vi[i] + Rs1_vi;
+                            }
+                        }
                     }});
                     0x2: vsub_vx({{
-                        Vd_vi[i] = Vs2_vi[i] - Rs1_vi;
+                        for (unsigned i = 0; i < vl; i++) {
+                            if(vm || elem_mask(v0, i)) {
+                                Vd_vi[i] = Vs2_vi[i] - Rs1_vi;
+                            }
+                        }
                     }});
                     0x4: vminu_vx({{
-                        Vd_vu[i] = Vs2_vu[i] < Rs1_vu ?
-                                        Vs2_vu[i] : Rs1_vu;
+                        for (unsigned i = 0; i < vl; i++) {
+                            if(vm || elem_mask(v0, i)) {
+                                Vd_vu[i] = Vs2_vu[i] < Rs1_vu ?
+                                    Vs2_vu[i] : Rs1_vu;
+                            }
+                        }
                     }}, VectorIntOp);
                     0x6: vmaxu_vx({{
-                        Vd_vu[i] = Vs2_vu[i] > Rs1_vu ?
-                                        Vs2_vu[i] : Rs1_vu;
+                        for (unsigned i = 0; i < vl; i++) {
+                            if(vm || elem_mask(v0, i)) {
+                                Vd_vu[i] = Vs2_vu[i] > Rs1_vu ?
+                                    Vs2_vu[i] : Rs1_vu;
+                            }
+                        }
                     }}, VectorIntOp);
                 }
             }

@@ -49,11 +49,6 @@ output exec {{
     {
         vtype = 0x80000000;
     }
-
-    #define VINT_EXECUTE_LOOP(...) \
-    for (unsigned i = 0; i < vl; i++) { \
-        if(vm || elem_mask(v0, i)) __VA_ARGS__ \
-    }
 }};
 
 
@@ -93,33 +88,25 @@ def template VIntExecute {{
             case 8: {
                 using vi [[maybe_unused]] = int8_t;
                 using vu [[maybe_unused]] = uint8_t;
-                %(op_decl)s; %(op_rd)s;
-                VINT_EXECUTE_LOOP({%(code)s});
-                %(op_wb)s;
+                %(op_decl)s; %(op_rd)s; %(code)s; %(op_wb)s;
                 break;
             }
             case 16: {
                 using vi [[maybe_unused]] = int16_t;
                 using vu [[maybe_unused]] = uint16_t;
-                %(op_decl)s; %(op_rd)s;
-                VINT_EXECUTE_LOOP({%(code)s});
-                %(op_wb)s;
+                %(op_decl)s; %(op_rd)s; %(code)s; %(op_wb)s;
                 break;
             }
             case 32: {
                 using vi [[maybe_unused]] = int32_t;
                 using vu [[maybe_unused]] = uint32_t;
-                %(op_decl)s; %(op_rd)s;
-                VINT_EXECUTE_LOOP({%(code)s});
-                %(op_wb)s;
+                %(op_decl)s; %(op_rd)s; %(code)s; %(op_wb)s;
                 break;
             }
             case 64: {
                 using vi [[maybe_unused]] = int64_t;
                 using vu [[maybe_unused]] = uint64_t;
-                %(op_decl)s; %(op_rd)s;
-                VINT_EXECUTE_LOOP({%(code)s});
-                %(op_wb)s;
+                %(op_decl)s; %(op_rd)s; %(code)s; %(op_wb)s;
                 break;
             }
             default:
