@@ -1352,10 +1352,18 @@ decode QUADRANT default Unknown::unknown() {
                 // OPIVV
                 0x0: decode VFUNCT6 {
                     0x0: vadd_vv({{
-                        Vd_vi[i] = Vs1_vi[i] + Vs2_vi[i];
+                        Vd_vi[i] = Vs2_vi[i] + Vs1_vi[i];
                     }}, VectorIntOp);
                     0x2: vsub_vv({{
                         Vd_vi[i] = Vs2_vi[i] - Vs1_vi[i];
+                    }}, VectorIntOp);
+                    0x4: vminu_vv({{
+                        Vd_vu[i] = Vs2_vu[i] < Vs1_vu[i] ?
+                                        Vs2_vu[i] : Vs1_vu[i];
+                    }}, VectorIntOp);
+                    0x6: vmaxu_vv({{
+                        Vd_vu[i] = Vs2_vu[i] > Vs1_vu[i] ?
+                                        Vs2_vu[i] : Vs1_vu[i];
                     }}, VectorIntOp);
                 }
                 // OPIVX
@@ -1366,6 +1374,14 @@ decode QUADRANT default Unknown::unknown() {
                     0x2: vsub_vx({{
                         Vd_vi[i] = Vs2_vi[i] - Rs1_vi;
                     }});
+                    0x4: vminu_vx({{
+                        Vd_vu[i] = Vs2_vu[i] < Rs1_vu ?
+                                        Vs2_vu[i] : Rs1_vu;
+                    }}, VectorIntOp);
+                    0x6: vmaxu_vx({{
+                        Vd_vu[i] = Vs2_vu[i] > Rs1_vu ?
+                                        Vs2_vu[i] : Rs1_vu;
+                    }}, VectorIntOp);
                 }
             }
             0x7: decode BIT31 {

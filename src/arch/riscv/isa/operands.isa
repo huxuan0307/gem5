@@ -41,6 +41,7 @@ def operand_types {{
     'df' : 'double',
 
     'vi' : 'vi',
+    'vu' : 'vu',
     'vc' : 'RiscvISA::VecRegContainer'
 }};
 
