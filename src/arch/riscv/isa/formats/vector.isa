@@ -1,4 +1,6 @@
 output exec {{
+    #define XLEN sizeof(RegVal) * 8
+
     uint64_t
     SEW(const uint64_t vtype)
     {
@@ -47,8 +49,12 @@ output exec {{
 
     void set_vill(uint64_t& vtype)
     {
-        vtype = 0x80000000;
+        vtype = (uint64_t)0 ^ (1UL << (XLEN-1));
     }
+
+    #define CHECK_VILL() \
+    if (bits(xc->readMiscReg(MISCREG_VTYPE), XLEN - 1)) \
+        return std::make_shared<IllegalInstFault>("VILL is set", machInst);
 }};
 
 
@@ -57,6 +63,8 @@ def template VConfExecute {{
     %(class_name)s::execute(ExecContext *xc,
         Trace::InstRecord *traceData) const
     {
+        CHECK_VILL();
+
         %(op_decl)s;
         %(op_rd)s;
         %(code)s;
@@ -78,6 +86,8 @@ def template VIntExecute {{
     %(class_name)s::execute(ExecContext *xc,
         Trace::InstRecord *traceData) const
     {
+        CHECK_VILL();
+
         uint64_t vl = xc->readMiscReg(MISCREG_VL);
         uint64_t vtype = xc->readMiscReg(MISCREG_VTYPE);
         auto tc = xc->tcBase();
@@ -203,6 +213,8 @@ def template VMemLoadExecute {{
     Fault %(class_name)s::execute(
         ExecContext *xc, Trace::InstRecord *traceData) const
     {
+        CHECK_VILL();
+
         Addr EA;
         Fault fault = NoFault;
         auto tc = xc->tcBase();
@@ -242,6 +254,8 @@ def template VMemLoadInitiateAcc {{
     Fault %(class_name)s::initiateAcc(ExecContext *xc,
         Trace::InstRecord *traceData) const
     {
+        CHECK_VILL();
+
         Addr EA;
         Fault fault = NoFault;
 
@@ -295,6 +309,8 @@ def template VMemStoreExecute {{
     Fault %(class_name)s::execute(
         ExecContext *xc, Trace::InstRecord *traceData) const
     {
+        CHECK_VILL();
+
         Addr EA;
         Fault fault = NoFault;
         auto tc = xc->tcBase();
@@ -336,6 +352,8 @@ def template VMemStoreInitiateAcc {{
     Fault %(class_name)s::initiateAcc(ExecContext *xc,
         Trace::InstRecord *traceData) const
     {
+        CHECK_VILL();
+
         Addr EA;
         Fault fault = NoFault;
         auto tc = xc->tcBase();
