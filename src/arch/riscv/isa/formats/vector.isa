@@ -52,8 +52,8 @@ output exec {{
         vtype = (uint64_t)0 ^ (1UL << (XLEN-1));
     }
 
-    #define CHECK_VILL() \
-    if (bits(xc->readMiscReg(MISCREG_VTYPE), XLEN - 1)) \
+    #define CHECK_VILL                                                      \
+    if (bits(xc->readMiscReg(MISCREG_VTYPE), XLEN - 1))                     \
         return std::make_shared<IllegalInstFault>("VILL is set", machInst);
 }};
 
@@ -63,7 +63,7 @@ def template VConfExecute {{
     %(class_name)s::execute(ExecContext *xc,
         Trace::InstRecord *traceData) const
     {
-        CHECK_VILL();
+        CHECK_VILL;
 
         %(op_decl)s;
         %(op_rd)s;
@@ -86,7 +86,7 @@ def template VIntExecute {{
     %(class_name)s::execute(ExecContext *xc,
         Trace::InstRecord *traceData) const
     {
-        CHECK_VILL();
+        CHECK_VILL;
 
         uint64_t vl = xc->readMiscReg(MISCREG_VL);
         uint64_t vtype = xc->readMiscReg(MISCREG_VTYPE);
@@ -127,12 +127,91 @@ def template VIntExecute {{
     }
 }};
 
+def template VFloatExecute {{
+    Fault
+    %(class_name)s::execute(ExecContext *xc,
+        Trace::InstRecord *traceData) const
+    {
+        CHECK_VILL;
+
+        STATUS status = xc->readMiscReg(MISCREG_STATUS);
+        if (status.fs == FPUStatus::OFF)
+            return std::make_shared<IllegalInstFault>("VFPU is off", machInst);
+
+        VRM_REQUIRED;
+
+        uint64_t vl = xc->readMiscReg(MISCREG_VL);
+        uint64_t vtype = xc->readMiscReg(MISCREG_VTYPE);
+        auto tc = xc->tcBase();
+        const RiscvISA::vreg_t& tmp_v0 = tc->readVecReg(RegId(VecRegClass, 0));
+        auto v0 = tmp_v0.as<uint64_t>();
+
+        switch (SEW(vtype)) {
+            case 32: {
+                using vu = uint32_t;
+                std::function<float32_t(vu)> ftype =
+                    [&](vu v){ return f32(v); };
+                std::function<float32_t(float32_t, float32_t)> fadd = f32_add;
+                std::function<float32_t(float32_t, float32_t)> fsub = f32_sub;
+                %(op_decl)s; %(op_rd)s;
+
+                RegVal FFLAGS = xc->readMiscReg(MISCREG_FFLAGS);
+                std::feclearexcept(FE_ALL_EXCEPT);
+
+                %(code)s;
+
+                FFLAGS |= softfloat_exceptionFlags;
+                softfloat_exceptionFlags = 0;
+                xc->setMiscReg(MISCREG_FFLAGS, FFLAGS);
+
+                %(op_wb)s;
+                break;
+            }
+            case 64: {
+                using vu = uint64_t;
+                std::function<float64_t(vu)> ftype =
+                    [&](vu v){ return f64(v); };
+                std::function<float64_t(float64_t, float64_t)> fadd = f64_add;
+                std::function<float64_t(float64_t, float64_t)> fsub = f64_sub;
+
+                %(op_decl)s; %(op_rd)s;
+
+                RegVal FFLAGS = xc->readMiscReg(MISCREG_FFLAGS);
+                std::feclearexcept(FE_ALL_EXCEPT);
+
+                %(code)s;
+
+                FFLAGS |= softfloat_exceptionFlags;
+                softfloat_exceptionFlags = 0;
+                xc->setMiscReg(MISCREG_FFLAGS, FFLAGS);
+
+                %(op_wb)s;
+                break;
+            }
+            default:
+                auto message = "VFPU does not support float" +
+                                std::to_string(SEW(vtype));
+                return std::make_shared<IllegalInstFault>(message, machInst);
+        }
+
+        return NoFault;
+    }
+}};
+
 def format VIntOp(code, *flags) {{
-    iop = InstObjParams(name, Name, 'VIntOp', code, flags)
+    iop = InstObjParams(name, Name, 'VArithOp', code, flags)
     header_output = BasicDeclare.subst(iop)
     decoder_output = BasicConstructor.subst(iop)
     decode_block = BasicDecode.subst(iop)
     exec_output = VIntExecute.subst(iop)
+}};
+
+def format VFloatOp(code, *flags) {{
+    iop = InstObjParams(name, Name, 'VArithOp', code, flags)
+    header_output = BasicDeclare.subst(iop)
+    decoder_output = BasicConstructor.subst(iop)
+    decode_block = BasicDecode.subst(iop)
+    exec_output = VFloatExecute.subst(iop)
 }};
 
 def format VConfOp(code, *flags) {{
@@ -213,7 +292,7 @@ def template VMemLoadExecute {{
     Fault %(class_name)s::execute(
         ExecContext *xc, Trace::InstRecord *traceData) const
     {
-        CHECK_VILL();
+        CHECK_VILL;
 
         Addr EA;
         Fault fault = NoFault;
@@ -254,7 +333,7 @@ def template VMemLoadInitiateAcc {{
     Fault %(class_name)s::initiateAcc(ExecContext *xc,
         Trace::InstRecord *traceData) const
     {
-        CHECK_VILL();
+        CHECK_VILL;
 
         Addr EA;
         Fault fault = NoFault;
@@ -309,7 +388,7 @@ def template VMemStoreExecute {{
     Fault %(class_name)s::execute(
         ExecContext *xc, Trace::InstRecord *traceData) const
     {
-        CHECK_VILL();
+        CHECK_VILL;
 
         Addr EA;
         Fault fault = NoFault;
@@ -352,7 +431,7 @@ def template VMemStoreInitiateAcc {{
     Fault %(class_name)s::initiateAcc(ExecContext *xc,
         Trace::InstRecord *traceData) const
     {
-        CHECK_VILL();
+        CHECK_VILL;
 
         Addr EA;
         Fault fault = NoFault;

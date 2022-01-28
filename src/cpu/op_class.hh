@@ -107,6 +107,7 @@ static const OpClass IprAccessOp = enums::IprAccess;
 static const OpClass InstPrefetchOp = enums::InstPrefetch;
 static const OpClass VectorConfOp = enums::VectorConf;
 static const OpClass VectorIntOp = enums::VectorInt;
+static const OpClass VectorFloatOp = enums::VectorFloat;
 static const OpClass VectorMemLoadOp = enums::VectorMemLoad;
 static const OpClass VectorMemStoreOp = enums::VectorMemStore;
 static const OpClass Num_OpClasses = enums::Num_OpClass;

@@ -14,7 +14,7 @@ namespace RiscvISA
 {
 
 std::string
-VIntOp::generateDisassembly(Addr pc, const loader::SymbolTable *symtab) const
+VArithOp::generateDisassembly(Addr pc, const loader::SymbolTable *symtab) const
 {
     std::stringstream ss;
     ss << mnemonic << ' ' << registerName(destRegIdx(0)) << ", " <<

@@ -16,14 +16,14 @@ namespace RiscvISA
 {
 
 /**
- * Base class for Arith IVV operations.
+ * Base class for arith operations.
  */
-class VIntOp : public RiscvStaticInst
+class VArithOp : public RiscvStaticInst
 {
   protected:
     uint64_t vm;
 
-    VIntOp(const char *mnem, MachInst _machInst, OpClass __opClass)
+    VArithOp(const char *mnem, MachInst _machInst, OpClass __opClass)
         : RiscvStaticInst(mnem, _machInst, __opClass),
           vm(VM)
     {}

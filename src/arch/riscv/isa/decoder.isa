@@ -35,7 +35,7 @@
 //
 
 output exec {{
-    #define VINT_LOOP(...) \
+    #define VLOOP(...) \
     for (unsigned i = 0; i < vl; i++) { \
         if(vm || elem_mask(v0, i)) __VA_ARGS__ \
     }
@@ -1359,60 +1359,79 @@ decode QUADRANT default Unknown::unknown() {
                 // OPIVV
                 0x0: decode VFUNCT6 {
                     0x0: vadd_vv({{
-                        VINT_LOOP ({
+                        VLOOP ({
                             Vd_vi[i] = Vs2_vi[i] + Vs1_vi[i];
                         });
                     }}, VectorIntOp);
                     0x2: vsub_vv({{
-                        VINT_LOOP ({
+                        VLOOP ({
                             Vd_vi[i] = Vs2_vi[i] - Vs1_vi[i];
                         });
                     }}, VectorIntOp);
                     0x4: vminu_vv({{
-                        VINT_LOOP ({
+                        VLOOP ({
                             Vd_vu[i] = Vs2_vu[i] < Vs1_vu[i] ?
                                 Vs2_vu[i] : Vs1_vu[i];
                         });
                     }}, VectorIntOp);
                     0x5: vmin_vv({{
-                        VINT_LOOP ({
+                        VLOOP ({
                             Vd_vi[i] = Vs2_vi[i] < Vs1_vi[i] ?
                                 Vs2_vi[i] : Vs1_vi[i];
                         });
                     }}, VectorIntOp);
                     0x6: vmaxu_vv({{
-                        VINT_LOOP ({
+                        VLOOP ({
                             Vd_vu[i] = Vs2_vu[i] > Vs1_vu[i] ?
                                 Vs2_vu[i] : Vs1_vu[i];
                         });
                     }}, VectorIntOp);
                     0x7: vmax_vv({{
-                        VINT_LOOP ({
+                        VLOOP ({
                             Vd_vi[i] = Vs2_vi[i] > Vs1_vi[i] ?
                                 Vs2_vi[i] : Vs1_vi[i];
                         });
                     }}, VectorIntOp);
                     0x9: vand_vv({{
-                        VINT_LOOP ({
+                        VLOOP ({
                             Vd_vi[i] = Vs2_vi[i] & Vs1_vi[i];
                         });
                     }}, VectorIntOp);
                     0xa: vor_vv({{
-                        VINT_LOOP ({
+                        VLOOP ({
                             Vd_vi[i] = Vs2_vi[i] | Vs1_vi[i];
                         });
                     }}, VectorIntOp);
                     0xb: vxor_vv({{
-                        VINT_LOOP ({
+                        VLOOP ({
                             Vd_vi[i] = Vs2_vi[i] ^ Vs1_vi[i];
                         });
                     }}, VectorIntOp);
                 }
+            }
+            format VFloatOp {
+                // OPFVV
+                0x1: decode VFUNCT6 {
+                    0x0: vfadd_vv({{
+                        VLOOP ({
+                            auto fd = fadd(ftype(Vs2_vu[i]), ftype(Vs1_vu[i]));
+                            Vd_vu[i] = fd.v;
+                        });
+                    }}, VectorFloatOp);
+                    0x2: vfsub_vv({{
+                        VLOOP ({
+                            auto fd = fsub(ftype(Vs2_vu[i]), ftype(Vs1_vu[i]));
+                            Vd_vu[i] = fd.v;
+                        });
+                    }}, VectorFloatOp);
+                }
+            }
+            format VIntOp {
                 // OPMVV
                 0x2: decode VFUNCT6 {
                     0x20: vdivu_vv({{
                         auto VIMAX = std::numeric_limits<vu>::max();
-                        VINT_LOOP ({
+                        VLOOP ({
                             if (Vs1_vu[i] == 0) {
                                 Vd_vu[i] = VIMAX;
                             } else {
@@ -1422,7 +1441,7 @@ decode QUADRANT default Unknown::unknown() {
                     }}, VectorIntOp);
                     0x21: vdiv_vv({{
                         auto VIMIN = std::numeric_limits<vi>::min();
-                        VINT_LOOP ({
+                        VLOOP ({
                             if (Vs1_vi[i] == 0) {
                                 Vd_vi[i] = -1;
                             } else if (Vs2_vi[i] == VIMIN && Vs1_vi[i] == -1) {
@@ -1433,7 +1452,7 @@ decode QUADRANT default Unknown::unknown() {
                         });
                     }}, VectorIntOp);
                     0x22: vremu_vv({{
-                        VINT_LOOP ({
+                        VLOOP ({
                             if (Vs1_vu[i] == 0) {
                                 Vd_vu[i] = Vs2_vu[i];
                             } else {
@@ -1443,7 +1462,7 @@ decode QUADRANT default Unknown::unknown() {
                     }}, VectorIntOp);
                     0x23: vrem_vv({{
                         auto VIMIN = std::numeric_limits<vi>::min();
-                        VINT_LOOP ({
+                        VLOOP ({
                             if (Vs1_vi[i] == 0) {
                                 Vd_vi[i] = Vs2_vi[i];
                             } else if (Vs2_vi[i] == VIMIN && Vs1_vi[i] == -1) {
@@ -1454,7 +1473,7 @@ decode QUADRANT default Unknown::unknown() {
                         });
                     }}, VectorIntOp);
                     0x24: vmulhu_vv({{
-                        VINT_LOOP ({
+                        VLOOP ({
                             auto sew = SEW(vtype);
                             if (sew < 64) {
                                 Vd_vu[i] = ((uint64_t)Vs2_vu[i] *
@@ -1482,12 +1501,12 @@ decode QUADRANT default Unknown::unknown() {
                         });
                     }}, VectorIntOp);
                     0x25: vmul_vv({{
-                        VINT_LOOP ({
+                        VLOOP ({
                             Vd_vi[i] = Vs2_vi[i] * Vs1_vi[i];
                         });
                     }}, VectorIntOp);
                     0x26: vmulhsu_vv({{
-                        VINT_LOOP ({
+                        VLOOP ({
                             auto sew = SEW(vtype);
                             if (sew < 64) {
                                 Vd_vu[i] = ((int64_t)Vs2_vi[i] *
@@ -1519,7 +1538,7 @@ decode QUADRANT default Unknown::unknown() {
                         });
                     }}, VectorIntOp);
                     0x27: vmulh_vv({{
-                        VINT_LOOP ({
+                        VLOOP ({
                             auto sew = SEW(vtype);
                             if (sew < 64) {
                                 Vd_vu[i] = ((int64_t)Vs2_vi[i] * Vs1_vi[i])
@@ -1553,23 +1572,23 @@ decode QUADRANT default Unknown::unknown() {
                 // OPIVX
                 0x4: decode VFUNCT6 {
                     0x0: vadd_vx({{
-                        VINT_LOOP ({
+                        VLOOP ({
                             Vd_vi[i] = Vs2_vi[i] + Rs1_vi;
                         });
                     }});
                     0x2: vsub_vx({{
-                        VINT_LOOP ({
+                        VLOOP ({
                             Vd_vi[i] = Vs2_vi[i] - Rs1_vi;
                         });
                     }});
                     0x4: vminu_vx({{
-                        VINT_LOOP ({
+                        VLOOP ({
                             Vd_vu[i] = Vs2_vu[i] < Rs1_vu ?
                                 Vs2_vu[i] : Rs1_vu;
                         });
                     }}, VectorIntOp);
                     0x6: vmaxu_vx({{
-                        VINT_LOOP ({
+                        VLOOP ({
                             Vd_vu[i] = Vs2_vu[i] > Rs1_vu ?
                                 Vs2_vu[i] : Rs1_vu;
                         });
