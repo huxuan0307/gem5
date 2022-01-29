@@ -1407,6 +1407,14 @@ decode QUADRANT default Unknown::unknown() {
                             Vd_vi[i] = Vs2_vi[i] ^ Vs1_vi[i];
                         });
                     }}, VectorIntOp);
+                    0xc: vrgather_vv({{
+                        auto vlmax = VLMAX(vtype);
+                        VLOOP ({
+                            Vd_vu[i] = Vs1_vu[i] > vlmax
+                                ? 0
+                                : Vs2_vu[Vs1_vu[i]];
+                        });
+                    }}, VectorIntOp);
                 }
             }
             format VFloatOp {
@@ -1422,6 +1430,24 @@ decode QUADRANT default Unknown::unknown() {
                         VLOOP ({
                             auto fd = fsub(ftype(Vs2_vu[i]), ftype(Vs1_vu[i]));
                             Vd_vu[i] = fd.v;
+                        });
+                    }}, VectorFloatOp);
+                    0x28: vfmadd_vv({{
+                        VLOOP ({
+                            auto fd = fmadd(ftype(Vdr_vu[i]),
+                                            ftype(Vs1_vu[i]),
+                                            ftype(Vs2_vu[i]));
+                            Vd_vu[i] = fd.v;
+                        });
+                    }}, VectorFloatOp);
+                }
+                // OPFVF
+                0x5: decode VFUNCT6 {
+                    0x17: vfmv_v_f({{
+                        // TODO: The instruction must have the vs2 field set to
+                        // v0, with all other values for vs2 reserved.
+                        VLOOP ({
+                            Vd_vu[i] = Fs1_bits;
                         });
                     }}, VectorFloatOp);
                 }
@@ -1575,22 +1601,62 @@ decode QUADRANT default Unknown::unknown() {
                         VLOOP ({
                             Vd_vi[i] = Vs2_vi[i] + Rs1_vi;
                         });
-                    }});
+                    }}, VectorIntOp);
                     0x2: vsub_vx({{
                         VLOOP ({
                             Vd_vi[i] = Vs2_vi[i] - Rs1_vi;
                         });
-                    }});
+                    }}, VectorIntOp);
+                    0x3: vrsub_vx({{
+                        VLOOP ({
+                            Vd_vi[i] = Rs1_vi - Vs2_vi[i];
+                        });
+                    }}, VectorIntOp);
                     0x4: vminu_vx({{
                         VLOOP ({
                             Vd_vu[i] = Vs2_vu[i] < Rs1_vu ?
                                 Vs2_vu[i] : Rs1_vu;
                         });
                     }}, VectorIntOp);
+                    0x5: vmin_vx({{
+                        VLOOP ({
+                            Vd_vi[i] = Vs2_vi[i] < Rs1_vi ?
+                                Vs2_vi[i] : Rs1_vi;
+                        });
+                    }}, VectorIntOp);
                     0x6: vmaxu_vx({{
                         VLOOP ({
                             Vd_vu[i] = Vs2_vu[i] > Rs1_vu ?
                                 Vs2_vu[i] : Rs1_vu;
+                        });
+                    }}, VectorIntOp);
+                    0x7: vmax_vx({{
+                        VLOOP ({
+                            Vd_vi[i] = Vs2_vi[i] > Rs1_vi ?
+                                Vs2_vi[i] : Rs1_vi;
+                        });
+                    }}, VectorIntOp);
+                    0x9: vand_vx({{
+                        VLOOP ({
+                            Vd_vi[i] = Vs2_vi[i] & Rs1_vi;
+                        });
+                    }}, VectorIntOp);
+                    0xa: vor_vx({{
+                        VLOOP ({
+                            Vd_vi[i] = Vs2_vi[i] | Rs1_vi;
+                        });
+                    }}, VectorIntOp);
+                    0xb: vxor_vx({{
+                        VLOOP ({
+                            Vd_vi[i] = Vs2_vi[i] ^ Rs1_vi;
+                        });
+                    }}, VectorIntOp);
+                    0xc: vrgather_vx({{
+                        auto vlmax = VLMAX(vtype);
+                        VLOOP ({
+                            Vd_vu[i] = Rs1_vu > vlmax
+                                ? 0
+                                : Vs2_vu[Rs1_vu];
                         });
                     }}, VectorIntOp);
                 }

@@ -76,6 +76,7 @@ def operands {{
     'Fp2_bits': ('FloatReg', 'ud', 'FP2 + 8', 'IsFloating', 2),
 
     'Vd': ('VecReg', 'vc', 'VD', 'IsVector', 1),
+    'Vdr': ('VecReg', 'vc', 'VD', 'IsVector', 1),
     'Vs1': ('VecReg', 'vc', 'VS1', 'IsVector', 2),
     'Vs2': ('VecReg', 'vc', 'VS2', 'IsVector', 3),
 
