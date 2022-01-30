@@ -29,9 +29,9 @@ output exec {{
     uint64_t
     VLMAX(const uint64_t vtype)
     {
-        int64_t vlmul = (int64_t)sext<3>(bits(vtype, 2, 0));
+        int64_t lmul = (int64_t)sext<3>(bits(vtype, 2, 0));
         int64_t vsew = bits(vtype, 5, 3);
-        return gem5::RiscvISA::VLEN >> (vsew + 3 - vlmul);
+        return gem5::RiscvISA::VLEN >> (vsew + 3 - lmul);
     }
 
     /*
@@ -204,6 +204,46 @@ def template VFloatExecute {{
     }
 }};
 
+def template VMvWholeExecute {{
+    Fault
+    %(class_name)s::execute(ExecContext *xc,
+        Trace::InstRecord *traceData) const
+    {
+        // TODO: Check register align
+        // TODO: If vd is equal to vs2 the instruction is an architectural NOP
+        %(op_decl)s; %(op_rd)s;
+
+        %(code)s;
+
+        %(op_wb)s;
+        return NoFault;
+    }
+
+    std::string
+    %(class_name)s::generateDisassembly(
+            Addr pc, const loader::SymbolTable *symtab) const
+    {
+        std::stringstream ss;
+        ss << mnemonic << ' ' << registerName(destRegIdx(0)) << ", " <<
+            registerName(srcRegIdx(1));
+        return ss.str();
+    }
+}};
+
+def template VMvWholeDeclare {{
+    class %(class_name)s : public %(base_class)s
+    {
+      private:
+        %(reg_idx_arr_decl)s;
+
+      public:
+        %(class_name)s(MachInst machInst);
+        Fault execute(ExecContext *, Trace::InstRecord *) const override;
+        std::string generateDisassembly(
+            Addr pc, const loader::SymbolTable *symtab) const override;
+    };
+}};
+
 def format VIntOp(code, *flags) {{
     iop = InstObjParams(name, Name, 'VArithOp', code, flags)
     header_output = BasicDeclare.subst(iop)
@@ -218,6 +258,14 @@ def format VFloatOp(code, *flags) {{
     decoder_output = BasicConstructor.subst(iop)
     decode_block = BasicDecode.subst(iop)
     exec_output = VFloatExecute.subst(iop)
+}};
+
+def format VMvWholeOp(code, *flags) {{
+    iop = InstObjParams(name, Name, 'VArithOp', code, flags)
+    header_output = VMvWholeDeclare.subst(iop)
+    decoder_output = BasicConstructor.subst(iop)
+    decode_block = BasicDecode.subst(iop)
+    exec_output = VMvWholeExecute.subst(iop)
 }};
 
 def format VConfOp(code, *flags) {{
@@ -254,7 +302,7 @@ def template VMemLoadStoreOpDeclare {{
 
 def template VMemLoadStoreOpConstructor {{
     %(class_name)s::%(class_name)s(ExtMachInst machInst):
-        %(base_class)s("%(mnemonic)s", machInst, %(op_class)s, 
+        %(base_class)s("%(mnemonic)s", machInst, %(op_class)s,
         (MEW<<3)|WIDTH, VM)
     {
         %(set_reg_idx_arr)s;
@@ -316,7 +364,7 @@ def template VMemLoadExecute {{
             fault = std::make_shared<IllegalInstFault>("VPU is off", machInst);
 
         if (fault == NoFault) {
-            fault = readMemAtomic(xc, EA, Mem.as<uint8_t>(), 
+            fault = readMemAtomic(xc, EA, Mem.as<uint8_t>(),
                 vl * this->sew, this->memAccessFlags, byte_enable);
         }
 
@@ -348,7 +396,7 @@ def template VMemLoadInitiateAcc {{
         %(op_rd)s;
         %(ea_code)s;
 
-        return initiateMemRead(xc, traceData, EA, Mem, 
+        return initiateMemRead(xc, traceData, EA, Mem,
             this->memAccessFlags);
     }
 }};
@@ -364,7 +412,6 @@ def template VMemLoadCompleteAcc {{
         %(op_decl)s;
         %(op_rd)s;
 
-        
         STATUS status = xc->readMiscReg(MISCREG_STATUS);
         if (status.vs == static_cast<int>(VPUStatus::OFF))
             fault = std::make_shared<IllegalInstFault>("VPU is off", machInst);
@@ -400,7 +447,7 @@ def template VMemStoreExecute {{
         Fault fault = NoFault;
         auto tc = xc->tcBase();
         size_t vl = RiscvStaticInst::getCurVL(tc);
-        
+
         %(op_decl)s;
         %(op_rd)s;
         %(ea_code)s;
@@ -408,7 +455,7 @@ def template VMemStoreExecute {{
         const std::vector<bool> byte_enable(vl * this->sew, true);
 
         if (fault == NoFault) {
-            fault = readMemAtomic(xc, EA, Mem.as<uint8_t>(), 
+            fault = readMemAtomic(xc, EA, Mem.as<uint8_t>(),
                 vl * this->sew, this->memAccessFlags, byte_enable);
         }
 
@@ -455,7 +502,7 @@ def template VMemStoreInitiateAcc {{
             fault = std::make_shared<IllegalInstFault>("VPU is off", machInst);
         // read old data
         if (fault == NoFault) {
-            fault = readMemAtomic(xc, EA, Mem.as<uint8_t>(), 
+            fault = readMemAtomic(xc, EA, Mem.as<uint8_t>(),
                 vl * this->sew, this->memAccessFlags, byte_enable);
         }
         if (fault == NoFault) {

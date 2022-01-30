@@ -35,8 +35,8 @@
 //
 
 output exec {{
-    #define VLOOP(...) \
-    for (unsigned i = 0; i < vl; i++) { \
+    #define VLOOP(...)                         \
+    for (unsigned i = 0; i < vl; i++) {        \
         if(vm || elem_mask(v0, i)) __VA_ARGS__ \
     }
 }};
@@ -426,7 +426,7 @@ decode QUADRANT default Unknown::unknown() {
                     Fd_bits = fd.v;
                 }}, inst_flags=FloatMemReadOp);
             }
-            
+
             0x0: decode MOP {
                 0x0: decode LUMOP {
                     0x00: VMemLoadOp::vle8_v({{
@@ -575,7 +575,7 @@ decode QUADRANT default Unknown::unknown() {
                 }
             }
             0x6: decode MOP {
-                0x0: decode SUMOP { 
+                0x0: decode SUMOP {
                     0x00: VMemStoreOp::vse32_v({{
                         Mem_vc.as<uint32_t>()[i] = Vd_uw[i];
                     }}, inst_flags=VectorMemStoreOp);
@@ -1661,18 +1661,31 @@ decode QUADRANT default Unknown::unknown() {
                     }}, VectorIntOp);
                 }
             }
+            // OPIVI
+            0x3: decode VFUNCT6 {
+                // According to Spec Section 16.6,
+                // vm must be 1 (unmasked) in vmv<nr>r.v instructions
+                0x27: decode VM { 0x1: decode SIMM_3 {
+                    format VMvWholeOp {
+                        0x0: vmv1r_v({{
+                            vreg_t& vd = xc->getWritableVecRegOperand(this, 0);
+                            vd = xc->readVecRegOperand(this, 0);
+                        }}, VectorIntOp);
+                    }
+                }}
+            }
             0x7: decode BIT31 {
                 format VConfOp {
                     0x0: vsetvli({{
-                        uint64_t rd_index = destRegIdx(0).index();
-                        uint64_t rs1_index = srcRegIdx(0).index();
+                        uint64_t rd = destRegIdx(0).index();
+                        uint64_t rs1 = srcRegIdx(0).index();
                         uint64_t vtype = zimm;
                         uint64_t vlmax = VLMAX(vtype);
-
                         uint64_t avl;
-                        if (rd_index == 0 && rs1_index == 0) {
+
+                        if (rd == 0 && rs1 == 0) {
                             avl = xc->readMiscReg(MISCREG_VL);
-                        } else if (rs1_index == 0) {
+                        } else if (rs1 == 0) {
                             avl = std::numeric_limits<uint64_t>::max();
                         } else {
                             avl = Rs1_ud;
@@ -1687,15 +1700,15 @@ decode QUADRANT default Unknown::unknown() {
                     }}, VectorConfOp);
                     0x1: decode BIT30 {
                         0x0: vsetvl({{
-                            uint64_t rd_index = destRegIdx(0).index();
-                            uint64_t rs1_index = srcRegIdx(0).index();
+                            uint64_t rd = destRegIdx(0).index();
+                            uint64_t rs1 = srcRegIdx(0).index();
                             uint64_t vtype = Rs2_ud;
                             uint64_t vlmax = VLMAX(vtype);
-
                             uint64_t avl;
-                            if (rd_index == 0 && rs1_index == 0) {
+
+                            if (rd == 0 && rs1 == 0) {
                                 avl = xc->readMiscReg(MISCREG_VL);
-                            } else if (rs1_index == 0) {
+                            } else if (rs1 == 0) {
                                 avl = std::numeric_limits<uint64_t>::max();
                             } else {
                                 avl = Rs1_ud;
@@ -1709,9 +1722,9 @@ decode QUADRANT default Unknown::unknown() {
                             Rd = vl;
                         }}, VectorConfOp);
                         0x1: vsetivli({{
-                            uint64_t avl = uimm;
                             uint64_t vtype = zimm;
                             uint64_t vlmax = VLMAX(vtype);
+                            uint64_t avl = uimm;
 
                             uint64_t vl = vlmax;
                             if (avl <= vlmax) {
