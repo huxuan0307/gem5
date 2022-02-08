@@ -442,7 +442,6 @@ class VecRegOperand(Operand):
             return self.buildWriteCode(predWrite, func)
 
         wb = '''
-        xc->setVecRegOperand(this, 0, tmp_d%d);
         if (traceData) {
             traceData->setData(tmp_d%d);
         }
@@ -453,6 +452,88 @@ class VecRegOperand(Operand):
         super().finalize(predRead, predWrite)
         if self.is_dest:
             self.op_rd = self.makeReadW(predWrite) + self.op_rd
+
+class GroupVecRegOperand(Operand):
+    reg_class = 'VecRegClass'
+
+    def __init__(self, parser, full_name, ext, is_src, is_dest):
+        Operand.__init__(self, parser, full_name, ext, is_src, is_dest)
+        self.elemExt = None
+        self.parser = parser
+
+    def isReg(self):
+        return 1
+
+    def isVecReg(self):
+        return 1
+
+    def makeDecl(self):
+        return ''
+
+    def makeConstructor(self, predRead, predWrite):
+        c_src = ''
+        c_dest = ''
+
+        numAccessNeeded = 1
+
+        if self.is_src:
+            c_src = self.src_reg_constructor % (self.reg_class, self.reg_spec)
+
+        if self.is_dest:
+            c_dest = self.dst_reg_constructor % (self.reg_class, self.reg_spec)
+            c_dest += '\n\t_numVecDestRegs++;'
+
+        return c_src + c_dest
+
+    def makeReadW(self, predWrite):
+        func = 'getWritableVecRegOperand'
+        if self.read_code != None:
+            return self.buildReadCode(predWrite, func)
+
+        rindex = '%d' % self.dest_reg_idx
+        c_readw = '''
+        %s tmp_d%s = xc->%s(this, %s, greg_idx);
+        ''' % ('TheISA::VecRegContainer', rindex, func, rindex)
+        if self.ext:
+            c_readw += '\t\tauto %s = tmp_d%s.as<%s>();\n' % (self.base_name,
+                        rindex, self.parser.operandTypeMap[self.ext])
+        return c_readw
+
+    def makeRead(self, predRead):
+        func = 'readVecRegOperand'
+        if self.read_code != None:
+            return self.buildReadCode(predRead, func)
+
+        rindex = '%d' % self.src_reg_idx
+        name = self.base_name
+        if self.is_dest and self.is_src:
+            name += '_merger'
+
+        c_read =  '\t\t%s tmp_s%s = xc->%s(this, %s, greg_idx);\n' \
+                % ('TheISA::VecRegContainer', rindex, func, rindex)
+        if self.ext:
+            c_read += '\t\tauto %s = tmp_s%s.as<%s>();\n' % \
+                 (name, rindex, self.parser.operandTypeMap[self.ext])
+        return c_read
+
+    def makeWrite(self, predWrite):
+        func = 'setVecRegOperand'
+        if self.write_code != None:
+            return self.buildWriteCode(predWrite, func)
+
+        wb = '''
+        xc->%s(this, %d, tmp_d%d, greg_idx);
+        if (traceData) {
+            traceData->setData(tmp_d%d);
+        }
+        ''' % (func, self.dest_reg_idx, self.dest_reg_idx, self.dest_reg_idx)
+        return wb
+
+    def finalize(self, predRead, predWrite):
+        super().finalize(predRead, predWrite)
+        if self.is_dest:
+            self.op_rd = self.makeReadW(predWrite) + self.op_rd
+
 
 class VecElemOperand(Operand):
     reg_class = 'VecElemClass'

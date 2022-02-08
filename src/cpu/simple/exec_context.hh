@@ -332,33 +332,38 @@ class SimpleExecContext : public ExecContext
 
     /** Reads a vector register. */
     const TheISA::VecRegContainer &
-    readVecRegOperand(const StaticInst *si, int idx) const override
+    readVecRegOperand(const StaticInst *si, int idx,
+                      int greg_idx = 0) const override
     {
         execContextStats.numVecRegReads++;
         const RegId& reg = si->srcRegIdx(idx);
         assert(reg.is(VecRegClass));
-        return thread->readVecReg(reg);
+        return thread->readVecReg(
+            RegId(VecRegClass, reg.index() + greg_idx));
     }
 
     /** Reads a vector register for modification. */
     TheISA::VecRegContainer &
-    getWritableVecRegOperand(const StaticInst *si, int idx) override
+    getWritableVecRegOperand(const StaticInst *si, int idx,
+        int greg_idx = 0) override
     {
         execContextStats.numVecRegWrites++;
         const RegId& reg = si->destRegIdx(idx);
         assert(reg.is(VecRegClass));
-        return thread->getWritableVecReg(reg);
+        return thread->getWritableVecReg(
+            RegId(VecRegClass, reg.index() + greg_idx));
     }
 
     /** Sets a vector register to a value. */
     void
     setVecRegOperand(const StaticInst *si, int idx,
-                     const TheISA::VecRegContainer& val) override
+                     const TheISA::VecRegContainer& val,
+                     int greg_idx = 0) override
     {
         execContextStats.numVecRegWrites++;
         const RegId& reg = si->destRegIdx(idx);
         assert(reg.is(VecRegClass));
-        thread->setVecReg(reg, val);
+        thread->setVecReg(RegId(VecRegClass, reg.index() + greg_idx), val);
     }
 
     /** Reads an element of a vector register. */

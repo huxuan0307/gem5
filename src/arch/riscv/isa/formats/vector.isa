@@ -27,11 +27,19 @@ output exec {{
     * Ref: https://github.com/qemu/qemu/blob/5e9d14f2/target/riscv/cpu.h
     */
     uint64_t
-    VLMAX(const uint64_t vtype)
+    VLMAX(const uint64_t vtype, const bool per_reg = false)
     {
         int64_t lmul = (int64_t)sext<3>(bits(vtype, 2, 0));
+        lmul = per_reg ? std::min<int64_t>(0, lmul) : lmul;
         int64_t vsew = bits(vtype, 5, 3);
         return gem5::RiscvISA::VLEN >> (vsew + 3 - lmul);
+    }
+
+    uint64_t
+    reg_group_nums(const uint64_t vtype)
+    {
+        int64_t lmul = (int64_t)sext<3>(bits(vtype, 2, 0));
+        return 1 << std::max<int64_t>(0, lmul);
     }
 
     /*
@@ -53,8 +61,15 @@ output exec {{
     }
 
     #define CHECK_VILL                                                      \
-    if (bits(xc->readMiscReg(MISCREG_VTYPE), XLEN - 1))                     \
+    if (bits(tc->readMiscReg(MISCREG_VTYPE), XLEN - 1))                     \
         return std::make_shared<IllegalInstFault>("VILL is set", machInst);
+
+    #define VLOOP(...)                              \
+    for (; ei < vl; ei++) {                         \
+        size_t i = ei - vlmax_per_reg * greg_idx;   \
+        if (i >= vlmax_per_reg) break;              \
+        if(vm || elem_mask(v0, i)) __VA_ARGS__      \
+    }
 }};
 
 
@@ -63,6 +78,7 @@ def template VConfExecute {{
     %(class_name)s::execute(ExecContext *xc,
         Trace::InstRecord *traceData) const
     {
+        auto tc = xc->tcBase();
         CHECK_VILL;
 
         %(op_decl)s;
@@ -73,9 +89,9 @@ def template VConfExecute {{
             set_vill(vtype);
             vl = 0;
         }
-        xc->setMiscReg(MISCREG_VL, vl);
-        xc->setMiscReg(MISCREG_VTYPE, vtype);
-        xc->setMiscReg(MISCREG_VSTART, 0);
+        tc->setMiscReg(MISCREG_VL, vl);
+        tc->setMiscReg(MISCREG_VTYPE, vtype);
+        tc->setMiscReg(MISCREG_VSTART, 0);
         %(op_wb)s;
         return NoFault;
     }
@@ -86,41 +102,47 @@ def template VIntExecute {{
     %(class_name)s::execute(ExecContext *xc,
         Trace::InstRecord *traceData) const
     {
+        auto tc = xc->tcBase();
         CHECK_VILL;
 
-        uint64_t vl = xc->readMiscReg(MISCREG_VL);
-        uint64_t vtype = xc->readMiscReg(MISCREG_VTYPE);
-        auto tc = xc->tcBase();
+        uint64_t vl = tc->readMiscReg(MISCREG_VL);
+        uint64_t vtype = tc->readMiscReg(MISCREG_VTYPE);
         const RiscvISA::vreg_t& tmp_v0 = tc->readVecReg(RegId(VecRegClass, 0));
         auto v0 = tmp_v0.as<uint64_t>();
+        auto nums = reg_group_nums(vtype);
+        auto vlmax_per_reg = VLMAX(vtype, true);
+        size_t greg_idx = 0, ei = 0;
 
-        switch (SEW(vtype)) {
-            case 8: {
-                using vi [[maybe_unused]] = int8_t;
-                using vu [[maybe_unused]] = uint8_t;
-                %(op_decl)s; %(op_rd)s; %(code)s; %(op_wb)s;
-                break;
+        for (; greg_idx < nums; greg_idx++) {
+            if (ei >= vl) break;
+            switch (SEW(vtype)) {
+                case 8: {
+                    using vi [[maybe_unused]] = int8_t;
+                    using vu [[maybe_unused]] = uint8_t;
+                    %(op_decl)s; %(op_rd)s; %(code)s; %(op_wb)s;
+                    break;
+                }
+                case 16: {
+                    using vi [[maybe_unused]] = int16_t;
+                    using vu [[maybe_unused]] = uint16_t;
+                    %(op_decl)s; %(op_rd)s; %(code)s; %(op_wb)s;
+                    break;
+                }
+                case 32: {
+                    using vi [[maybe_unused]] = int32_t;
+                    using vu [[maybe_unused]] = uint32_t;
+                    %(op_decl)s; %(op_rd)s; %(code)s; %(op_wb)s;
+                    break;
+                }
+                case 64: {
+                    using vi [[maybe_unused]] = int64_t;
+                    using vu [[maybe_unused]] = uint64_t;
+                    %(op_decl)s; %(op_rd)s; %(code)s; %(op_wb)s;
+                    break;
+                }
+                default:
+                    panic("Invalid SEW");
             }
-            case 16: {
-                using vi [[maybe_unused]] = int16_t;
-                using vu [[maybe_unused]] = uint16_t;
-                %(op_decl)s; %(op_rd)s; %(code)s; %(op_wb)s;
-                break;
-            }
-            case 32: {
-                using vi [[maybe_unused]] = int32_t;
-                using vu [[maybe_unused]] = uint32_t;
-                %(op_decl)s; %(op_rd)s; %(code)s; %(op_wb)s;
-                break;
-            }
-            case 64: {
-                using vi [[maybe_unused]] = int64_t;
-                using vu [[maybe_unused]] = uint64_t;
-                %(op_decl)s; %(op_rd)s; %(code)s; %(op_wb)s;
-                break;
-            }
-            default:
-                panic("Invalid SEW");
         }
 
         return NoFault;
@@ -132,6 +154,7 @@ def template VFloatExecute {{
     %(class_name)s::execute(ExecContext *xc,
         Trace::InstRecord *traceData) const
     {
+        auto tc = xc->tcBase();
         CHECK_VILL;
 
         STATUS status = xc->readMiscReg(MISCREG_STATUS);
@@ -140,64 +163,72 @@ def template VFloatExecute {{
 
         VRM_REQUIRED;
 
-        uint64_t vl = xc->readMiscReg(MISCREG_VL);
-        uint64_t vtype = xc->readMiscReg(MISCREG_VTYPE);
-        auto tc = xc->tcBase();
+        uint64_t vl = tc->readMiscReg(MISCREG_VL);
+        uint64_t vtype = tc->readMiscReg(MISCREG_VTYPE);
         const RiscvISA::vreg_t& tmp_v0 = tc->readVecReg(RegId(VecRegClass, 0));
         auto v0 = tmp_v0.as<uint64_t>();
 
-        switch (SEW(vtype)) {
-            case 32: {
-                using vu = uint32_t;
-                std::function<float32_t(vu)> ftype =
-                    [&](vu v){ return f32(v); };
-                std::function<float32_t(float32_t, float32_t)>
-                    fadd = f32_add,
-                    fsub = f32_sub;
-                std::function<float32_t(float32_t, float32_t, float32_t)>
-                    fmadd = f32_mulAdd;
-                %(op_decl)s; %(op_rd)s;
+        auto nums = reg_group_nums(vtype);
+        auto vlmax_per_reg = VLMAX(vtype, true);
+        size_t greg_idx = 0, ei = 0;
 
-                RegVal FFLAGS = xc->readMiscReg(MISCREG_FFLAGS);
-                std::feclearexcept(FE_ALL_EXCEPT);
+        for (; greg_idx < nums; greg_idx++) {
+            if (ei >= vl) break;
+            switch (SEW(vtype)) {
+                case 32: {
+                    using vu = uint32_t;
+                    std::function<float32_t(vu)> ftype =
+                        [&](vu v){ return f32(v); };
+                    std::function<float32_t(float32_t, float32_t)>
+                        fadd = f32_add,
+                        fsub = f32_sub;
+                    std::function<float32_t(float32_t, float32_t, float32_t)>
+                        fmadd = f32_mulAdd;
 
-                %(code)s;
+                    %(op_decl)s; %(op_rd)s;
 
-                FFLAGS |= softfloat_exceptionFlags;
-                softfloat_exceptionFlags = 0;
-                xc->setMiscReg(MISCREG_FFLAGS, FFLAGS);
+                    RegVal FFLAGS = xc->readMiscReg(MISCREG_FFLAGS);
+                    std::feclearexcept(FE_ALL_EXCEPT);
 
-                %(op_wb)s;
-                break;
+                    %(code)s;
+
+                    FFLAGS |= softfloat_exceptionFlags;
+                    softfloat_exceptionFlags = 0;
+                    xc->setMiscReg(MISCREG_FFLAGS, FFLAGS);
+
+                    %(op_wb)s;
+                    break;
+                }
+                case 64: {
+                    using vu = uint64_t;
+                    std::function<float64_t(vu)> ftype =
+                        [&](vu v){ return f64(v); };
+                    std::function<float64_t(float64_t, float64_t)>
+                        fadd = f64_add,
+                        fsub = f64_sub;
+                    std::function<float64_t(float64_t, float64_t, float64_t)>
+                        fmadd = f64_mulAdd;
+
+                    %(op_decl)s; %(op_rd)s;
+
+                    RegVal FFLAGS = xc->readMiscReg(MISCREG_FFLAGS);
+                    std::feclearexcept(FE_ALL_EXCEPT);
+
+                    %(code)s;
+
+                    FFLAGS |= softfloat_exceptionFlags;
+                    softfloat_exceptionFlags = 0;
+                    xc->setMiscReg(MISCREG_FFLAGS, FFLAGS);
+
+                    %(op_wb)s;
+                    break;
+                }
+                default:
+                    auto message = "VFPU does not support float" +
+                                    std::to_string(SEW(vtype));
+                    return std::make_shared<IllegalInstFault>(message,
+                        machInst);
             }
-            case 64: {
-                using vu = uint64_t;
-                std::function<float64_t(vu)> ftype =
-                    [&](vu v){ return f64(v); };
-                std::function<float64_t(float64_t, float64_t)>
-                    fadd = f64_add,
-                    fsub = f64_sub;
-                std::function<float64_t(float64_t, float64_t, float64_t)>
-                    fmadd = f64_mulAdd;
-
-                %(op_decl)s; %(op_rd)s;
-
-                RegVal FFLAGS = xc->readMiscReg(MISCREG_FFLAGS);
-                std::feclearexcept(FE_ALL_EXCEPT);
-
-                %(code)s;
-
-                FFLAGS |= softfloat_exceptionFlags;
-                softfloat_exceptionFlags = 0;
-                xc->setMiscReg(MISCREG_FFLAGS, FFLAGS);
-
-                %(op_wb)s;
-                break;
-            }
-            default:
-                auto message = "VFPU does not support float" +
-                                std::to_string(SEW(vtype));
-                return std::make_shared<IllegalInstFault>(message, machInst);
         }
 
         return NoFault;
@@ -311,16 +342,15 @@ def template VMemLoadStoreOpConstructor {{
 }};
 
 let {{
-    def VMemLoadStoreOpBase(name, Name, ea_code, memacc_code,
-            mem_flags, inst_flags, base_class, postacc_code='',
+    def VMemLoadStoreOpBase(name, Name, memacc_code, ea_code,
+            mem_flags, inst_flags, base_class,
             decode_template=BasicDecode, exec_template_base=''):
         # Make sure flags are in lists (convert to lists if not).
         mem_flags = makeList(mem_flags)
         inst_flags = makeList(inst_flags)
 
         iop = InstObjParams(name, Name, base_class,
-            {'ea_code': ea_code,
-            'memacc_code': memacc_code, 'postacc_code': postacc_code },
+            {'ea_code': ea_code, 'memacc_code': memacc_code },
             inst_flags)
 
         if mem_flags:
@@ -346,36 +376,40 @@ def template VMemLoadExecute {{
     Fault %(class_name)s::execute(
         ExecContext *xc, Trace::InstRecord *traceData) const
     {
+        auto tc = xc->tcBase();
         CHECK_VILL;
 
         Addr EA;
         Fault fault = NoFault;
-        auto tc = xc->tcBase();
-        size_t vl = RiscvStaticInst::getCurVL(tc);
 
-        %(op_decl)s;
-        %(op_rd)s;
-        %(ea_code)s;
-
-        const std::vector<bool> byte_enable(vl * this->sew, true);
-
+        size_t vl = tc->readMiscReg(MISCREG_VL);
+        uint64_t vtype = tc->readMiscReg(MISCREG_VTYPE);
         STATUS status = xc->readMiscReg(MISCREG_STATUS);
         if (status.vs == static_cast<int>(VPUStatus::OFF))
             fault = std::make_shared<IllegalInstFault>("VPU is off", machInst);
 
-        if (fault == NoFault) {
-            fault = readMemAtomic(xc, EA, Mem.as<uint8_t>(),
-                vl * this->sew, this->memAccessFlags, byte_enable);
-        }
+        if (fault != NoFault) return fault;
 
-        if (fault == NoFault) {
-            const RiscvISA::vreg_t& tmp_v0 = tc->readVecReg(RegId(VecRegClass, 0));
-            auto v0 = tmp_v0.as<uint64_t>();
-            for (int i = 0; i < vl; i++) {
-                if (vm == 1 || elem_mask(v0, i)) {
-                    %(memacc_code)s;
-                }
-            }
+        const RiscvISA::vreg_t& tmp_v0 = tc->readVecReg(RegId(VecRegClass, 0));
+        auto v0 = tmp_v0.as<uint64_t>();
+
+        auto nums = reg_group_nums(vtype);
+        auto vlmax_per_reg = VLMAX(vtype, true);
+        size_t greg_idx = 0, ei = 0;
+        for (; greg_idx < nums; greg_idx++) {
+            if (ei >= vl) break;
+            %(op_decl)s; %(op_rd)s; %(ea_code)s;
+
+            auto offset = vlmax_per_reg * this->sew * greg_idx;
+            auto bytes_to_read = std::min(vlmax_per_reg * this->sew,
+                                          vl * this->sew - offset);
+            const std::vector<bool> byte_enable(bytes_to_read, true);
+            fault = readMemAtomic(xc, EA + offset, Mem.as<uint8_t>(),
+                bytes_to_read, this->memAccessFlags, byte_enable);
+
+            if (fault != NoFault) return fault;
+
+            VLOOP({ %(memacc_code)s; });
             %(op_wb)s;
         }
 
@@ -387,6 +421,7 @@ def template VMemLoadInitiateAcc {{
     Fault %(class_name)s::initiateAcc(ExecContext *xc,
         Trace::InstRecord *traceData) const
     {
+        auto tc = xc->tcBase();
         CHECK_VILL;
 
         Addr EA;
@@ -406,30 +441,34 @@ def template VMemLoadCompleteAcc {{
         Trace::InstRecord *traceData) const
     {
         Fault fault = NoFault;
-        auto tc = xc->tcBase();
-        size_t vl = RiscvStaticInst::getCurVL(tc);
 
-        %(op_decl)s;
-        %(op_rd)s;
+        auto tc = xc->tcBase();
+        size_t vl = tc->readMiscReg(MISCREG_VL);
+        uint64_t vtype = tc->readMiscReg(MISCREG_VTYPE);
 
         STATUS status = xc->readMiscReg(MISCREG_STATUS);
         if (status.vs == static_cast<int>(VPUStatus::OFF))
             fault = std::make_shared<IllegalInstFault>("VPU is off", machInst);
 
-        if (fault == NoFault) {
-            memcpy(Mem.as<uint8_t>(), pkt->getPtr<uint8_t>(),
-                pkt->getSize());
-            const RiscvISA::vreg_t& tmp_v0 =
-                tc->readVecReg(RegId(VecRegClass, 0));
-            auto v0 = tmp_v0.as<uint64_t>();
-            for (int i = 0; i < vl; i++) {
-                if (vm == 1 || elem_mask(v0, i)) {
-                    %(memacc_code)s;
-                }
-            }
-        }
+        if (fault != NoFault) return fault;
 
-        if (fault == NoFault) {
+        const RiscvISA::vreg_t& tmp_v0 =
+            tc->readVecReg(RegId(VecRegClass, 0));
+        auto v0 = tmp_v0.as<uint64_t>();
+
+        auto nums = reg_group_nums(vtype);
+        auto vlmax_per_reg = VLMAX(vtype, true);
+        size_t greg_idx = 0, ei = 0;
+        for (; greg_idx < nums; greg_idx++) {
+            if (ei >= vl) break;
+            %(op_decl)s; %(op_rd)s;
+
+            auto offset = vlmax_per_reg * this->sew * greg_idx;
+            auto bytes_to_read = std::min(vlmax_per_reg * this->sew,
+                                          vl * this->sew - offset);
+            memcpy(Mem.as<uint8_t>(), pkt->getPtr<uint8_t>() + offset,
+                   bytes_to_read);
+            VLOOP({ %(memacc_code)s; });
             %(op_wb)s;
         }
 
@@ -441,39 +480,43 @@ def template VMemStoreExecute {{
     Fault %(class_name)s::execute(
         ExecContext *xc, Trace::InstRecord *traceData) const
     {
+        auto tc = xc->tcBase();
         CHECK_VILL;
 
         Addr EA;
         Fault fault = NoFault;
-        auto tc = xc->tcBase();
-        size_t vl = RiscvStaticInst::getCurVL(tc);
 
-        %(op_decl)s;
-        %(op_rd)s;
-        %(ea_code)s;
+        size_t vl = tc->readMiscReg(MISCREG_VL);
+        uint64_t vtype = tc->readMiscReg(MISCREG_VTYPE);
 
-        const std::vector<bool> byte_enable(vl * this->sew, true);
+        if (fault != NoFault) return fault;
 
-        if (fault == NoFault) {
-            fault = readMemAtomic(xc, EA, Mem.as<uint8_t>(),
-                vl * this->sew, this->memAccessFlags, byte_enable);
-        }
+        const RiscvISA::vreg_t& tmp_v0 =
+            tc->readVecReg(RegId(VecRegClass, 0));
+        auto v0 = tmp_v0.as<uint64_t>();
+        auto nums = reg_group_nums(vtype);
+        auto vlmax_per_reg = VLMAX(vtype, true);
+        size_t greg_idx = 0, ei = 0;
+        for (; greg_idx < nums; greg_idx++) {
+            if (ei >= vl) break;
+            %(op_decl)s; %(op_rd)s; %(ea_code)s;
 
-        if (fault == NoFault) {
-            const RiscvISA::vreg_t& tmp_v0 = tc->readVecReg(RegId(VecRegClass, 0));
-            auto v0 = tmp_v0.as<uint64_t>();
-            for (int i = 0; i < vl; i++) {
-                if (vm == 1 || elem_mask(v0, i)) {
-                    %(memacc_code)s;
-                }
-            }
-            fault = writeMemAtomic(xc, Mem.as<uint8_t>(), EA,
-                vl * this->sew, this->memAccessFlags, nullptr, byte_enable);
-        }
+            auto offset = vlmax_per_reg * this->sew * greg_idx;
+            auto bytes_to_read = std::min(vlmax_per_reg * this->sew,
+                                          vl * this->sew - offset);
+            const std::vector<bool> byte_enable(bytes_to_read, true);
+            fault = readMemAtomic(xc, EA + offset, Mem.as<uint8_t>(),
+                bytes_to_read, this->memAccessFlags, byte_enable);
 
-        if (fault == NoFault) {
-            %(postacc_code)s;
+            if (fault != NoFault) return fault;
+
+            VLOOP({ %(memacc_code)s; });
             %(op_wb)s;
+
+            fault = writeMemAtomic(xc, Mem.as<uint8_t>(), EA + offset,
+                bytes_to_read, this->memAccessFlags, nullptr, byte_enable);
+
+            if (fault != NoFault) return fault;
         }
 
         return fault;
@@ -484,40 +527,48 @@ def template VMemStoreInitiateAcc {{
     Fault %(class_name)s::initiateAcc(ExecContext *xc,
         Trace::InstRecord *traceData) const
     {
+        auto tc = xc->tcBase();
         CHECK_VILL;
 
         Addr EA;
         Fault fault = NoFault;
-        auto tc = xc->tcBase();
-        size_t vl = RiscvStaticInst::getCurVL(tc);
+
         STATUS status = xc->readMiscReg(MISCREG_STATUS);
-
-        %(op_src_decl)s;
-        %(op_rd)s;
-        %(ea_code)s;
-
-        const std::vector<bool> byte_enable(vl * this->sew, true);
+        size_t vl = tc->readMiscReg(MISCREG_VL);
+        uint64_t vtype = tc->readMiscReg(MISCREG_VTYPE);
 
         if (status.vs == static_cast<int>(VPUStatus::OFF))
             fault = std::make_shared<IllegalInstFault>("VPU is off", machInst);
-        // read old data
-        if (fault == NoFault) {
-            fault = readMemAtomic(xc, EA, Mem.as<uint8_t>(),
-                vl * this->sew, this->memAccessFlags, byte_enable);
-        }
-        if (fault == NoFault) {
-            const RiscvISA::vreg_t& tmp_v0 = tc->readVecReg(RegId(VecRegClass, 0));
-            auto v0 = tmp_v0.as<uint64_t>();
-            for (int i = 0; i < vl; i++) {
-                if (vm == 1 || elem_mask(v0, i)) {
-                    %(memacc_code)s;
-                }
-            }
-            Fault fault = writeMemAtomic(xc, Mem.as<uint8_t>(), EA,
-                vl * this->sew, this->memAccessFlags, nullptr, byte_enable);
-        }
 
-        %(op_wb)s;
+        if (fault != NoFault) return fault;
+
+        const RiscvISA::vreg_t& tmp_v0 = tc->readVecReg(RegId(VecRegClass, 0));
+        auto v0 = tmp_v0.as<uint64_t>();
+
+        auto nums = reg_group_nums(vtype);
+        auto vlmax_per_reg = VLMAX(vtype, true);
+        size_t greg_idx = 0, ei = 0;
+        for (; greg_idx < nums; greg_idx++) {
+            if (ei >= vl) break;
+            %(op_src_decl)s; %(op_rd)s; %(ea_code)s;
+
+            auto offset = vlmax_per_reg * this->sew * greg_idx;
+            auto bytes_to_read = std::min(vlmax_per_reg * this->sew,
+                                          vl * this->sew - offset);
+            const std::vector<bool> byte_enable(bytes_to_read, true);
+            fault = readMemAtomic(xc, EA + offset, Mem.as<uint8_t>(),
+                bytes_to_read, this->memAccessFlags, byte_enable);
+
+            if (fault != NoFault) return fault;
+
+            VLOOP({ %(memacc_code)s; });
+            %(op_wb)s;
+
+            fault = writeMemAtomic(xc, Mem.as<uint8_t>(), EA + offset,
+                bytes_to_read, this->memAccessFlags, nullptr, byte_enable);
+
+            if (fault != NoFault) return fault;
+        }
 
         return fault;
     }
@@ -532,20 +583,20 @@ def template VMemStoreCompleteAcc {{
 }};
 
 def format VMemLoadOp (
-    memacc_code, ea_code = {{EA = Rs1;}},
+    memacc_code, ea_code={{EA = Rs1}},
     mem_flags=[], inst_flags=[]
 ) {{
     (header_output, decoder_output, decode_block, exec_output) = \
-        VMemLoadStoreOpBase(name, Name, ea_code, memacc_code,
+        VMemLoadStoreOpBase(name, Name, memacc_code, ea_code,
         mem_flags, inst_flags, 'VMemLoadOp', exec_template_base='VMemLoad')
 }};
 
 def format VMemStoreOp (
-    memacc_code, ea_code = {{EA = Rs1;}},
+    memacc_code, ea_code={{EA = Rs1}},
     mem_flags=[], inst_flags=[]
 ) {{
     (header_output, decoder_output, decode_block, exec_output) = \
-        VMemLoadStoreOpBase(name, Name, ea_code, memacc_code,
+        VMemLoadStoreOpBase(name, Name, memacc_code, ea_code,
         mem_flags, inst_flags, 'VMemStoreOp',
         exec_template_base='VMemStore')
 }};

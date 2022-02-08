@@ -34,13 +34,6 @@
 // The RISC-V ISA decoder
 //
 
-output exec {{
-    #define VLOOP(...)                         \
-    for (unsigned i = 0; i < vl; i++) {        \
-        if(vm || elem_mask(v0, i)) __VA_ARGS__ \
-    }
-}};
-
 decode QUADRANT default Unknown::unknown() {
     0x0: decode COPCODE {
         0x0: CIAddi4spnOp::c_addi4spn({{

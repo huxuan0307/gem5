@@ -161,19 +161,23 @@ class ExecContext : public gem5::ExecContext
     }
 
     const TheISA::VecRegContainer &
-    readVecRegOperand(const StaticInst *si, int idx) const override
+    readVecRegOperand(const StaticInst *si, int idx,
+                      int greg_idx = 0) const override
     {
         const RegId& reg = si->srcRegIdx(idx);
         assert(reg.is(VecRegClass));
-        return thread.readVecReg(reg);
+        return thread.readVecReg(
+            RegId(VecRegClass, reg.index() + greg_idx));
     }
 
     TheISA::VecRegContainer &
-    getWritableVecRegOperand(const StaticInst *si, int idx) override
+    getWritableVecRegOperand(const StaticInst *si, int idx,
+                             int greg_idx = 0) override
     {
         const RegId& reg = si->destRegIdx(idx);
         assert(reg.is(VecRegClass));
-        return thread.getWritableVecReg(reg);
+        return thread.getWritableVecReg(
+            RegId(VecRegClass, reg.index() + greg_idx));
     }
 
     RegVal
@@ -218,11 +222,12 @@ class ExecContext : public gem5::ExecContext
 
     void
     setVecRegOperand(const StaticInst *si, int idx,
-                     const TheISA::VecRegContainer& val) override
+                     const TheISA::VecRegContainer& val,
+                     int greg_idx = 0) override
     {
         const RegId& reg = si->destRegIdx(idx);
         assert(reg.is(VecRegClass));
-        thread.setVecReg(reg, val);
+        thread.setVecReg(RegId(VecRegClass, reg.index() + greg_idx), val);
     }
 
     void

@@ -64,8 +64,8 @@ class VMemLoadStoreOp : public RiscvStaticInst
     {
         switch (_width)
         {
-        case 0x0        : sew = 8; break;
-        case 0x5 ... 0x7: sew = 8 << (_width - 4); break;
+        case 0x0        : sew = 1; break;
+        case 0x5 ... 0x7: sew = 1 << (_width - 4); break;
         default:
             panic("not supported vector load width %d", _width);
             break;

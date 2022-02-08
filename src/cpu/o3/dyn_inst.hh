@@ -1152,8 +1152,10 @@ class DynInst : public ExecContext, public RefCounted
     }
 
     const TheISA::VecRegContainer&
-    readVecRegOperand(const StaticInst *si, int idx) const override
+    readVecRegOperand(const StaticInst *si, int idx,
+                      int greg_idx = 0) const override
     {
+        panic("Not yet implemented\n");
         return cpu->readVecReg(renamedSrcIdx(idx));
     }
 
@@ -1161,8 +1163,10 @@ class DynInst : public ExecContext, public RefCounted
      * Read destination vector register operand for modification.
      */
     TheISA::VecRegContainer&
-    getWritableVecRegOperand(const StaticInst *si, int idx) override
+    getWritableVecRegOperand(const StaticInst *si, int idx,
+                             int greg_idx = 0) override
     {
+        panic("Not yet implemented\n");
         return cpu->getWritableVecReg(renamedDestIdx(idx));
     }
 
@@ -1209,8 +1213,10 @@ class DynInst : public ExecContext, public RefCounted
 
     void
     setVecRegOperand(const StaticInst *si, int idx,
-                     const TheISA::VecRegContainer& val) override
+                     const TheISA::VecRegContainer& val,
+                     int greg_idx = 0) override
     {
+        panic("Not yet implemented\n");
         cpu->setVecReg(renamedDestIdx(idx), val);
         setResult(val);
     }

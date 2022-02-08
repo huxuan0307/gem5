@@ -109,15 +109,15 @@ class ExecContext
     /** @{ */
     /** Reads source vector register operand. */
     virtual const TheISA::VecRegContainer& readVecRegOperand(
-            const StaticInst *si, int idx) const = 0;
+            const StaticInst *si, int idx, int greg_idx = 0) const = 0;
 
     /** Gets destination vector register operand for modification. */
     virtual TheISA::VecRegContainer& getWritableVecRegOperand(
-            const StaticInst *si, int idx) = 0;
+            const StaticInst *si, int idx, int greg_idx = 0) = 0;
 
     /** Sets a destination vector register operand to a value. */
     virtual void setVecRegOperand(const StaticInst *si, int idx,
-            const TheISA::VecRegContainer& val) = 0;
+            const TheISA::VecRegContainer& val, int greg_idx = 0) = 0;
     /** @} */
 
     /** Vector Elem Interfaces. */

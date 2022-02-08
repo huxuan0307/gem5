@@ -75,10 +75,10 @@ def operands {{
     'Fp2': ('FloatReg', 'df', 'FP2 + 8', 'IsFloating', 2),
     'Fp2_bits': ('FloatReg', 'ud', 'FP2 + 8', 'IsFloating', 2),
 
-    'Vd': ('VecReg', 'vc', 'VD', 'IsVector', 1),
-    'Vdr': ('VecReg', 'vc', 'VD', 'IsVector', 1),
-    'Vs1': ('VecReg', 'vc', 'VS1', 'IsVector', 2),
-    'Vs2': ('VecReg', 'vc', 'VS2', 'IsVector', 3),
+    'Vd': ('GroupVecReg', 'vc', 'VD', 'IsVector', 1),
+    'Vdr': ('GroupVecReg', 'vc', 'VD', 'IsVector', 1),
+    'Vs1': ('GroupVecReg', 'vc', 'VS1', 'IsVector', 2),
+    'Vs2': ('GroupVecReg', 'vc', 'VS2', 'IsVector', 3),
 
 #Memory Operand
     'Mem': ('Mem', 'ud', None, (None, 'IsLoad', 'IsStore'), 5),
