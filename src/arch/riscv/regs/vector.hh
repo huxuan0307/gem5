@@ -16,10 +16,10 @@ namespace RiscvISA
 
 constexpr unsigned NumVecElemPerVecReg = 4;
 using VecElem = uint64_t;
-constexpr size_t _VLEN_BYTES = NumVecElemPerVecReg * sizeof(VecElem);
-constexpr size_t VLEN = _VLEN_BYTES * 8;
+constexpr size_t vlenb = NumVecElemPerVecReg * sizeof(VecElem);
+constexpr size_t VLEN = vlenb * 8;
 using VecRegContainer =
-    gem5::VecRegContainer<_VLEN_BYTES>;
+    gem5::VecRegContainer<vlenb>;
 using vreg_t = VecRegContainer;
 
 using VecPredReg =

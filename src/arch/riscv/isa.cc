@@ -355,6 +355,11 @@ ISA::readMiscReg(int misc_reg)
             else
                 return mbits(val, 63, 1);
         }
+      case MISCREG_VLENB:
+        {
+            return vlenb;
+        }
+        break;
       default:
         // Try reading HPM counters
         // As a placeholder, all HPM counters are just cycle counters

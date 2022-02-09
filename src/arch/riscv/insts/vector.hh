@@ -100,6 +100,7 @@ class VMemStoreOp : public VMemLoadStoreOp
     std::string generateDisassembly(
         Addr pc, const loader::SymbolTable *symtab) const override;
 };
+
 } // namespace RiscvISA
 } // namespace gem5
 

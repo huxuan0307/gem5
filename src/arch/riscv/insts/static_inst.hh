@@ -89,12 +89,6 @@ class RiscvStaticInst : public StaticInst
     {
         return simpleAsBytes(buf, size, machInst);
     }
-
-    static size_t
-    getCurVL(ThreadContext *tc)
-    {
-        return tc->readMiscReg(MISCREG_VL);
-    }
 };
 
 /**

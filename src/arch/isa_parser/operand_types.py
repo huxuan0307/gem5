@@ -534,7 +534,6 @@ class GroupVecRegOperand(Operand):
         if self.is_dest:
             self.op_rd = self.makeReadW(predWrite) + self.op_rd
 
-
 class VecElemOperand(Operand):
     reg_class = 'VecElemClass'
 

@@ -57,7 +57,8 @@ class OpClass(Enum):
             'MemRead', 'MemWrite', 'FloatMemRead', 'FloatMemWrite',
             'IprAccess', 'InstPrefetch',
             'VectorConf', 'VectorInt', 'VectorFloat',
-            'VectorMemLoad', 'VectorMemStore'
+            'VectorMemLoad', 'VectorMemLoadWhole',
+            'VectorMemStore', 'VectorMemStoreWhole'
             ]
 
 class OpDesc(SimObject):

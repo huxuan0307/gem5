@@ -1,7 +1,7 @@
 output exec {{
     #define XLEN sizeof(RegVal) * 8
 
-    uint64_t
+    inline uint64_t
     SEW(const uint64_t vtype)
     {
         return 8 << bits(vtype, 5, 3);
@@ -26,7 +26,7 @@ output exec {{
     *               = 2
     * Ref: https://github.com/qemu/qemu/blob/5e9d14f2/target/riscv/cpu.h
     */
-    uint64_t
+    inline uint64_t
     VLMAX(const uint64_t vtype, const bool per_reg = false)
     {
         int64_t lmul = (int64_t)sext<3>(bits(vtype, 2, 0));
@@ -35,7 +35,7 @@ output exec {{
         return gem5::RiscvISA::VLEN >> (vsew + 3 - lmul);
     }
 
-    uint64_t
+    inline uint64_t
     reg_group_nums(const uint64_t vtype)
     {
         int64_t lmul = (int64_t)sext<3>(bits(vtype, 2, 0));
@@ -47,7 +47,7 @@ output exec {{
      *  Ref:
      *  https://github.com/qemu/qemu/blob/c7d773ae/target/riscv/vector_helper.c
     */
-    int
+    inline int
     elem_mask(const uint64_t *v0, const int index)
     {
         int idx = index / 64;
@@ -55,9 +55,14 @@ output exec {{
         return (v0[idx] >> pos) & 1;
     }
 
-    void set_vill(uint64_t& vtype)
+    inline void set_vill(uint64_t& vtype)
     {
         vtype = (uint64_t)0 ^ (1UL << (XLEN-1));
+    }
+
+    inline size_t mem_bits(const uint8_t width)
+    {
+        return width == 0 ? 8 : (1 << (width - 1));
     }
 
     #define CHECK_VILL                                                      \
@@ -245,11 +250,12 @@ def template VMvWholeExecute {{
     {
         // TODO: Check register align
         // TODO: If vd is equal to vs2 the instruction is an architectural NOP
-        %(op_decl)s; %(op_rd)s;
-
-        %(code)s;
-
-        %(op_wb)s;
+        size_t NREG = SIMM_3 + 1;
+        for (size_t greg_idx = 0; greg_idx < NREG; greg_idx++) {
+            for (size_t i = 0; i < gem5::RiscvISA::NumVecElemPerVecReg; i++) {
+                %(op_decl)s; %(op_rd)s; %(code)s; %(op_wb)s;
+            }
+        }
         return NoFault;
     }
 
@@ -428,7 +434,6 @@ def template VMemLoadInitiateAcc {{
         CHECK_VILL;
 
         Addr EA;
-        Fault fault = NoFault;
 
         %(op_src_decl)s;
         %(op_rd)s;
@@ -479,6 +484,73 @@ def template VMemLoadCompleteAcc {{
     }
 }};
 
+def template VMemLoadWholeExecute {{
+    Fault %(class_name)s::execute(
+        ExecContext *xc, Trace::InstRecord *traceData) const
+    {
+        Fault fault = NoFault;
+        Addr EA;
+
+        size_t NFIELDS = NF + 1;
+        size_t elem_per_reg = gem5::RiscvISA::VLEN / mem_bits(WIDTH);
+        for (size_t greg_idx = 0; greg_idx < NFIELDS; greg_idx++) {
+            %(op_decl)s; %(op_rd)s; %(ea_code)s;
+
+            auto offset = gem5::RiscvISA::vlenb * greg_idx;
+            const std::vector<bool> byte_enable(gem5::RiscvISA::vlenb, true);
+            fault = readMemAtomic(xc, EA + offset, Mem.as<uint8_t>(),
+                gem5::RiscvISA::vlenb, this->memAccessFlags, byte_enable);
+
+            if (fault != NoFault) return fault;
+
+            for (size_t i = 0; i < elem_per_reg; i++) {
+                %(memacc_code)s;
+            }
+            %(op_wb)s;
+        }
+
+        return fault;
+    }
+}};
+
+def template VMemLoadWholeInitiateAcc {{
+    Fault %(class_name)s::initiateAcc(ExecContext *xc,
+        Trace::InstRecord *traceData) const
+    {
+        Addr EA;
+
+        %(op_src_decl)s;
+        %(op_rd)s;
+        %(ea_code)s;
+
+        return initiateMemRead(xc, traceData, EA, Mem,
+            this->memAccessFlags);
+    }
+}};
+
+def template VMemLoadWholeCompleteAcc {{
+    Fault %(class_name)s::completeAcc(PacketPtr pkt, ExecContext *xc,
+        Trace::InstRecord *traceData) const
+    {
+        size_t NFIELDS = NF + 1;
+        size_t elem_per_reg = gem5::RiscvISA::VLEN / mem_bits(WIDTH);
+        for (size_t greg_idx = 0; greg_idx < NFIELDS; greg_idx++) {
+            %(op_decl)s; %(op_rd)s;
+
+            auto offset = gem5::RiscvISA::vlenb * greg_idx;
+            memcpy(Mem.as<uint8_t>(), pkt->getPtr<uint8_t>() + offset,
+                   gem5::RiscvISA::vlenb);
+
+            for (size_t i = 0; i < elem_per_reg; i++) {
+                %(memacc_code)s;
+            }
+            %(op_wb)s;
+        }
+
+        return NoFault;
+    }
+}};
+
 def template VMemStoreExecute {{
     Fault %(class_name)s::execute(
         ExecContext *xc, Trace::InstRecord *traceData) const
@@ -492,11 +564,9 @@ def template VMemStoreExecute {{
         size_t vl = tc->readMiscReg(MISCREG_VL);
         uint64_t vtype = tc->readMiscReg(MISCREG_VTYPE);
 
-        if (fault != NoFault) return fault;
-
-        const RiscvISA::vreg_t& tmp_v0 =
-            tc->readVecReg(RegId(VecRegClass, 0));
+        const RiscvISA::vreg_t& tmp_v0 = tc->readVecReg(RegId(VecRegClass, 0));
         auto v0 = tmp_v0.as<uint64_t>();
+
         auto nums = reg_group_nums(vtype);
         auto vlmax_per_reg = VLMAX(vtype, true);
         size_t greg_idx = 0, ei = 0;
@@ -530,46 +600,38 @@ def template VMemStoreInitiateAcc {{
     Fault %(class_name)s::initiateAcc(ExecContext *xc,
         Trace::InstRecord *traceData) const
     {
-        auto tc = xc->tcBase();
-        CHECK_VILL;
+        return execute(xc, traceData);
+    }
+}};
 
-        Addr EA;
+def template VMemStoreCompleteAcc {{
+    Fault %(class_name)s::completeAcc(PacketPtr pkt, ExecContext *xc,
+        Trace::InstRecord *traceData) const
+    {
+        return NoFault;
+    }
+}};
+
+def template VMemStoreWholeExecute {{
+    Fault %(class_name)s::execute(
+        ExecContext *xc, Trace::InstRecord *traceData) const
+    {
         Fault fault = NoFault;
+        Addr EA;
 
-        STATUS status = xc->readMiscReg(MISCREG_STATUS);
-        size_t vl = tc->readMiscReg(MISCREG_VL);
-        uint64_t vtype = tc->readMiscReg(MISCREG_VTYPE);
-
-        if (status.vs == static_cast<int>(VPUStatus::OFF))
-            fault = std::make_shared<IllegalInstFault>("VPU is off", machInst);
-
-        if (fault != NoFault) return fault;
-
-        const RiscvISA::vreg_t& tmp_v0 = tc->readVecReg(RegId(VecRegClass, 0));
-        auto v0 = tmp_v0.as<uint64_t>();
-
-        auto nums = reg_group_nums(vtype);
-        auto vlmax_per_reg = VLMAX(vtype, true);
-        size_t greg_idx = 0, ei = 0;
-        for (; greg_idx < nums; greg_idx++) {
-            if (ei >= vl) break;
-            %(op_src_decl)s; %(op_rd)s; %(ea_code)s;
-
-            auto offset = vlmax_per_reg * this->sew * greg_idx;
-            auto bytes_to_read = std::min(vlmax_per_reg * this->sew,
-                                          vl * this->sew - offset);
-            const std::vector<bool> byte_enable(bytes_to_read, true);
-            fault = readMemAtomic(xc, EA + offset, Mem.as<uint8_t>(),
-                bytes_to_read, this->memAccessFlags, byte_enable);
-
-            if (fault != NoFault) return fault;
-
-            VLOOP({ %(memacc_code)s; });
+        size_t NFIELDS = NF + 1;
+        for (size_t greg_idx = 0; greg_idx < NFIELDS; greg_idx++) {
+            %(op_decl)s; %(op_rd)s; %(ea_code)s;
+            for (size_t i = 0; i < gem5::RiscvISA::NumVecElemPerVecReg; i++) {
+                %(memacc_code)s;
+            }
             %(op_wb)s;
 
-            fault = writeMemAtomic(xc, Mem.as<uint8_t>(), EA + offset,
-                bytes_to_read, this->memAccessFlags, nullptr, byte_enable);
-
+            const std::vector<bool> byte_enable(gem5::RiscvISA::vlenb, true);
+            auto offset = EA + gem5::RiscvISA::vlenb * greg_idx;
+            fault = writeMemAtomic(xc, Mem.as<uint8_t>(),
+                offset, gem5::RiscvISA::vlenb,
+                this->memAccessFlags, nullptr, byte_enable);
             if (fault != NoFault) return fault;
         }
 
@@ -577,7 +639,15 @@ def template VMemStoreInitiateAcc {{
     }
 }};
 
-def template VMemStoreCompleteAcc {{
+def template VMemStoreWholeInitiateAcc {{
+    Fault %(class_name)s::initiateAcc(ExecContext *xc,
+        Trace::InstRecord *traceData) const
+    {
+        return execute(xc, traceData);
+    }
+}};
+
+def template VMemStoreWholeCompleteAcc {{
     Fault %(class_name)s::completeAcc(PacketPtr pkt, ExecContext *xc,
         Trace::InstRecord *traceData) const
     {
@@ -594,6 +664,16 @@ def format VMemLoadOp (
         mem_flags, inst_flags, 'VMemLoadOp', exec_template_base='VMemLoad')
 }};
 
+def format VMemLoadWholeOp (
+    memacc_code, ea_code={{EA = Rs1}},
+    mem_flags=[], inst_flags=[]
+) {{
+    (header_output, decoder_output, decode_block, exec_output) = \
+        VMemLoadStoreOpBase(name, Name, memacc_code, ea_code,
+        mem_flags, inst_flags, 'VMemLoadOp',
+        exec_template_base='VMemLoadWhole')
+}};
+
 def format VMemStoreOp (
     memacc_code, ea_code={{EA = Rs1}},
     mem_flags=[], inst_flags=[]
@@ -602,4 +682,14 @@ def format VMemStoreOp (
         VMemLoadStoreOpBase(name, Name, memacc_code, ea_code,
         mem_flags, inst_flags, 'VMemStoreOp',
         exec_template_base='VMemStore')
+}};
+
+def format VMemStoreWholeOp (
+    memacc_code, ea_code={{EA = Rs1}},
+    mem_flags=[], inst_flags=[]
+) {{
+    (header_output, decoder_output, decode_block, exec_output) = \
+        VMemLoadStoreOpBase(name, Name, memacc_code, ea_code,
+        mem_flags, inst_flags, 'VMemStoreOp',
+        exec_template_base='VMemStoreWhole')
 }};
