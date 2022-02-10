@@ -1408,6 +1408,53 @@ decode QUADRANT default Unknown::unknown() {
                                 : Vs2_vu[Vs1_vu[i]];
                         });
                     }}, VectorIntOp);
+                    0x17: vmv_v_v({{
+                        VLOOP ({
+                            Vd_vu[i] = Vs1_vu[i];
+                        });
+                    }}, VectorIntOp);
+                    0x18: vmseq_vv({{
+                        auto sew = SEW(vtype);
+                        VLOOP ({
+                            auto res = ( Vs2_vu[i] == Vs1_vu[i] ) ? 1 : 0;
+                            Vd_vu[i / sew] = ASSIGN_BIT(i, sew, res);
+                        });
+                    }}, VectorIntOp);
+                    0x19: vmsne_vv({{
+                        auto sew = SEW(vtype);
+                        VLOOP ({
+                            uint64_t res = ( Vs2_vu[i] != Vs1_vu[i] ) ? 1 : 0;
+                            Vd_vu[i / sew] = ASSIGN_BIT(i, sew, res);
+                        });
+                    }}, VectorIntOp);
+                    0x1a: vmsltu_vv({{
+                        auto sew = SEW(vtype);
+                        VLOOP ({
+                            uint64_t res = ( Vs2_vu[i] < Vs1_vu[i] ) ? 1 : 0;
+                            Vd_vu[i / sew] = ASSIGN_BIT(i, sew, res);
+                        });
+                    }}, VectorIntOp);
+                    0x1b: vmslt_vv({{
+                        auto sew = SEW(vtype);
+                        VLOOP ({
+                            uint64_t res = ( Vs2_vi[i] < Vs1_vi[i] ) ? 1 : 0;
+                            Vd_vu[i / sew] = ASSIGN_BIT(i, sew, res);
+                        });
+                    }}, VectorIntOp);
+                    0x1c: vmsleu_vv({{
+                        auto sew = SEW(vtype);
+                        VLOOP ({
+                            uint64_t res = ( Vs2_vu[i] <= Vs1_vu[i] ) ? 1 : 0;
+                            Vd_vu[i / sew] = ASSIGN_BIT(i, sew, res);
+                        });
+                    }}, VectorIntOp);
+                    0x1d: vmsle_vv({{
+                        auto sew = SEW(vtype);
+                        VLOOP ({
+                            uint64_t res = ( Vs2_vi[i] <= Vs1_vi[i] ) ? 1 : 0;
+                            Vd_vu[i / sew] = ASSIGN_BIT(i, sew, res);
+                        });
+                    }}, VectorIntOp);
                 }
             }
             format VFloatOp {
@@ -1652,10 +1699,127 @@ decode QUADRANT default Unknown::unknown() {
                                 : Vs2_vu[Rs1_vu];
                         });
                     }}, VectorIntOp);
+                    0x17: vmv_v_x({{
+                        VLOOP ({
+                            Vd_vu[i] = Rs1_vu;
+                        });
+                    }}, VectorIntOp);
+                    0x18: vmseq_vx({{
+                        auto sew = SEW(vtype);
+                        VLOOP ({
+                            uint64_t res = ( Vs2_vu[i] == Rs1_vu ) ? 1 : 0;
+                            Vd_vu[i / sew] = ASSIGN_BIT(i, sew, res);
+                        });
+                    }}, VectorIntOp);
+                    0x19: vmsne_vx({{
+                        auto sew = SEW(vtype);
+                        VLOOP ({
+                            uint64_t res = ( Vs2_vu[i] != Rs1_vu ) ? 1 : 0;
+                            Vd_vu[i / sew] = ASSIGN_BIT(i, sew, res);
+                        });
+                    }}, VectorIntOp);
+                    0x1a: vmsltu_vx({{
+                        auto sew = SEW(vtype);
+                        VLOOP ({
+                            uint64_t res = ( Vs2_vu[i] < Rs1_vu ) ? 1 : 0;
+                            Vd_vu[i / sew] = ASSIGN_BIT(i, sew, res);
+                        });
+                    }}, VectorIntOp);
+                    0x1b: vmslt_vx({{
+                        auto sew = SEW(vtype);
+                        VLOOP ({
+                            uint64_t res = ( Vs2_vi[i] < Rs1_vi ) ? 1 : 0;
+                            Vd_vu[i / sew] = ASSIGN_BIT(i, sew, res);
+                        });
+                    }}, VectorIntOp);
+                    0x1c: vmsleu_vx({{
+                        auto sew = SEW(vtype);
+                        VLOOP ({
+                            uint64_t res = ( Vs2_vu[i] <= Rs1_vu ) ? 1 : 0;
+                            Vd_vu[i / sew] = ASSIGN_BIT(i, sew, res);
+                        });
+                    }}, VectorIntOp);
+                    0x1d: vmsle_vx({{
+                        auto sew = SEW(vtype);
+                        VLOOP ({
+                            uint64_t res = ( Vs2_vi[i] <= Rs1_vi ) ? 1 : 0;
+                            Vd_vu[i / sew] = ASSIGN_BIT(i, sew, res);
+                        });
+                    }}, VectorIntOp);
+                    0x1e: vmsgtu_vx({{
+                        auto sew = SEW(vtype);
+                        VLOOP ({
+                            uint64_t res = ( Vs2_vu[i] > Rs1_vu ) ? 1 : 0;
+                            Vd_vu[i / sew] = ASSIGN_BIT(i, sew, res);
+                        });
+                    }}, VectorIntOp);
+                    0x1f: vmsgt_vx({{
+                        auto sew = SEW(vtype);
+                        VLOOP ({
+                            uint64_t res = ( Vs2_vi[i] > Rs1_vi ) ? 1 : 0;
+                            Vd_vu[i / sew] = ASSIGN_BIT(i, sew, res);
+                        });
+                    }}, VectorIntOp);
                 }
             }
             // OPIVI
             0x3: decode VFUNCT6 {
+                format VIntOp {
+                    0x17: vmv_v_i({{
+                        vi val = sext<5>((vu)UIMM);
+                        VLOOP({
+                            Vd_vi[i] = val;
+                        });
+                    }}, VectorIntOp);
+                    0x18: vmseq_vi({{
+                        vi val = sext<5>((vu)UIMM);
+                        auto sew = SEW(vtype);
+                        VLOOP ({
+                            uint64_t res = ( Vs2_vi[i] == val ) ? 1 : 0;
+                            Vd_vu[i / sew] = ASSIGN_BIT(i, sew, res);
+                        });
+                    }}, VectorIntOp);
+                    0x19: vmsne_vi({{
+                        vi val = sext<5>((vu)UIMM);
+                        auto sew = SEW(vtype);
+                        VLOOP ({
+                            uint64_t res = ( Vs2_vi[i] != val ) ? 1 : 0;
+                            Vd_vu[i / sew] = ASSIGN_BIT(i, sew, res);
+                        });
+                    }}, VectorIntOp);
+                    0x1c: vmsleu_vi({{
+                        vi val = sext<5>((vu)UIMM);
+                        auto sew = SEW(vtype);
+                        VLOOP ({
+                            uint64_t res = ( Vs2_vu[i] <= val ) ? 1 : 0;
+                            Vd_vu[i / sew] = ASSIGN_BIT(i, sew, res);
+                        });
+                    }}, VectorIntOp);
+                    0x1d: vmsle_vi({{
+                        vi val = sext<5>((vu)UIMM);
+                        auto sew = SEW(vtype);
+                        VLOOP ({
+                            uint64_t res = ( Vs2_vi[i] <= val ) ? 1 : 0;
+                            Vd_vu[i / sew] = ASSIGN_BIT(i, sew, res);
+                        });
+                    }}, VectorIntOp);
+                    0x1e: vmsgtu_vi({{
+                        vi val = sext<5>((vu)UIMM);
+                        auto sew = SEW(vtype);
+                        VLOOP ({
+                            uint64_t res = ( Vs2_vu[i] > val ) ? 1 : 0;
+                            Vd_vu[i / sew] = ASSIGN_BIT(i, sew, res);
+                        });
+                    }}, VectorIntOp);
+                    0x1f: vmsgt_vi({{
+                        vi val = sext<5>((vu)UIMM);
+                        auto sew = SEW(vtype);
+                        VLOOP ({
+                            uint64_t res = ( Vs2_vi[i] > val ) ? 1 : 0;
+                            Vd_vu[i / sew] = ASSIGN_BIT(i, sew, res);
+                        });
+                    }}, VectorIntOp);
+                }
                 // According to Spec Section 16.6,
                 // vm must be 1 (unmasked) in vmv<nr>r.v instructions
                 0x27: decode VM { 0x1: decode SIMM_3 {

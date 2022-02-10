@@ -70,6 +70,9 @@ output exec {{
         if (i >= vlmax_per_reg) break;              \
         if(vm || elem_mask(v0, i)) __VA_ARGS__      \
     }
+
+    #define ASSIGN_BIT(i, sew, res) \
+        ((Vd[i/sew] &= ~(1 << i % sew)) |= ((res) << i % sew))
 }};
 
 
