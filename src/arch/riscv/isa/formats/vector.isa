@@ -189,7 +189,9 @@ def template VFloatExecute {{
                         [&](vu v){ return f32(v); };
                     std::function<float32_t(float32_t, float32_t)>
                         fadd = f32_add,
-                        fsub = f32_sub;
+                        fsub = f32_sub,
+                        fdiv = f32_div,
+                        fmul = f32_mul;
                     std::function<float32_t(float32_t, float32_t, float32_t)>
                         fmadd = f32_mulAdd;
 
@@ -213,7 +215,9 @@ def template VFloatExecute {{
                         [&](vu v){ return f64(v); };
                     std::function<float64_t(float64_t, float64_t)>
                         fadd = f64_add,
-                        fsub = f64_sub;
+                        fsub = f64_sub,
+                        fdiv = f64_div,
+                        fmul = f64_mul;
                     std::function<float64_t(float64_t, float64_t, float64_t)>
                         fmadd = f64_mulAdd;
 

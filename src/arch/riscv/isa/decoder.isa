@@ -1553,6 +1553,18 @@ decode QUADRANT default Unknown::unknown() {
                             Vd_vu[i] = fd.v;
                         });
                     }}, VectorFloatOp);
+                    0x20: vfdiv_vv({{
+                        VLOOP ({
+                            auto fd = fdiv(ftype(Vs2_vu[i]), ftype(Vs1_vu[i]));
+                            Vd_vu[i] = fd.v;
+                        });
+                    }}, VectorFloatOp);
+                    0x24: vfmul_vv({{
+                        VLOOP ({
+                            auto fd = fdiv(ftype(Vs2_vu[i]), ftype(Vs1_vu[i]));
+                            Vd_vu[i] = fd.v;
+                        });
+                    }}, VectorFloatOp);
                     0x28: vfmadd_vv({{
                         VLOOP ({
                             auto fd = fmadd(ftype(Vs3_vu[i]),
@@ -1572,6 +1584,18 @@ decode QUADRANT default Unknown::unknown() {
                 }
                 // OPFVF
                 0x5: decode VFUNCT6 {
+                    0x0: vfadd_vf({{
+                        VLOOP ({
+                            auto fd = fadd(ftype(Vs2_vu[i]), ftype(Fs1_bits));
+                            Vd_vu[i] = fd.v;
+                        });
+                    }}, VectorFloatOp);
+                    0x2: vfsub_vf({{
+                        VLOOP ({
+                            auto fd = fsub(ftype(Vs2_vu[i]), ftype(Fs1_bits));
+                            Vd_vu[i] = fd.v;
+                        });
+                    }}, VectorFloatOp);
                     0x17: vfmv_v_f({{
                         // TODO: The instruction must have the vs2 field set to
                         // v0, with all other values for vs2 reserved.
