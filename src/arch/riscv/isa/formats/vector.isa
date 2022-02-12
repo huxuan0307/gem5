@@ -77,9 +77,16 @@ output exec {{
     }
 
     #define ASSIGN_BIT(i, sew, res) \
-        ((Vd[i/sew] &= ~(1 << i % sew)) |= ((res) << i % sew))
+    ((Vd[i/sew] &= ~(1 << i % sew)) |= ((res) << i % sew))
 }};
 
+def format VConfOp(code, *flags) {{
+    iop = InstObjParams(name, Name, 'VConfOp', code, flags)
+    header_output = BasicDeclare.subst(iop)
+    decoder_output = BasicConstructor.subst(iop)
+    decode_block = BasicDecode.subst(iop)
+    exec_output = VConfExecute.subst(iop)
+}};
 
 def template VConfExecute {{
     Fault
@@ -103,6 +110,14 @@ def template VConfExecute {{
         %(op_wb)s;
         return NoFault;
     }
+}};
+
+def format VIntOp(code, *flags) {{
+    iop = InstObjParams(name, Name, 'VArithOp', code, flags)
+    header_output = BasicDeclare.subst(iop)
+    decoder_output = BasicConstructor.subst(iop)
+    decode_block = BasicDecode.subst(iop)
+    exec_output = VIntExecute.subst(iop)
 }};
 
 def template VIntExecute {{
@@ -157,6 +172,15 @@ def template VIntExecute {{
     }
 }};
 
+
+def format VFloatOp(code, *flags) {{
+    iop = InstObjParams(name, Name, 'VArithOp', code, flags)
+    header_output = BasicDeclare.subst(iop)
+    decoder_output = BasicConstructor.subst(iop)
+    decode_block = BasicDecode.subst(iop)
+    exec_output = VFloatExecute.subst(iop)
+}};
+
 def template VFloatExecute {{
     Fault
     %(class_name)s::execute(ExecContext *xc,
@@ -192,6 +216,10 @@ def template VFloatExecute {{
                         fsub = f32_sub,
                         fdiv = f32_div,
                         fmul = f32_mul;
+                    std::function<bool(float32_t, float32_t)>
+                        fle = f32_le,
+                        flt = f32_lt,
+                        feq = f32_eq;
                     std::function<float32_t(float32_t, float32_t, float32_t)>
                         fmadd = f32_mulAdd;
 
@@ -218,6 +246,10 @@ def template VFloatExecute {{
                         fsub = f64_sub,
                         fdiv = f64_div,
                         fmul = f64_mul;
+                    std::function<bool(float64_t, float64_t)>
+                        fle = f64_le,
+                        flt = f64_lt,
+                        feq = f64_eq;
                     std::function<float64_t(float64_t, float64_t, float64_t)>
                         fmadd = f64_mulAdd;
 
@@ -245,6 +277,14 @@ def template VFloatExecute {{
 
         return NoFault;
     }
+}};
+
+def format VMvWholeOp(code, *flags) {{
+    iop = InstObjParams(name, Name, 'VArithOp', code, flags)
+    header_output = VMvWholeDeclare.subst(iop)
+    decoder_output = BasicConstructor.subst(iop)
+    decode_block = BasicDecode.subst(iop)
+    exec_output = VMvWholeExecute.subst(iop)
 }};
 
 def template VMvWholeExecute {{
@@ -288,42 +328,7 @@ def template VMvWholeDeclare {{
     };
 }};
 
-def format VIntOp(code, *flags) {{
-    iop = InstObjParams(name, Name, 'VArithOp', code, flags)
-    header_output = BasicDeclare.subst(iop)
-    decoder_output = BasicConstructor.subst(iop)
-    decode_block = BasicDecode.subst(iop)
-    exec_output = VIntExecute.subst(iop)
-}};
 
-def format VFloatOp(code, *flags) {{
-    iop = InstObjParams(name, Name, 'VArithOp', code, flags)
-    header_output = BasicDeclare.subst(iop)
-    decoder_output = BasicConstructor.subst(iop)
-    decode_block = BasicDecode.subst(iop)
-    exec_output = VFloatExecute.subst(iop)
-}};
-
-def format VMvWholeOp(code, *flags) {{
-    iop = InstObjParams(name, Name, 'VArithOp', code, flags)
-    header_output = VMvWholeDeclare.subst(iop)
-    decoder_output = BasicConstructor.subst(iop)
-    decode_block = BasicDecode.subst(iop)
-    exec_output = VMvWholeExecute.subst(iop)
-}};
-
-def format VConfOp(code, *flags) {{
-    iop = InstObjParams(name, Name, 'VConfOp', code, flags)
-    header_output = BasicDeclare.subst(iop)
-    decoder_output = BasicConstructor.subst(iop)
-    decode_block = BasicDecode.subst(iop)
-    exec_output = VConfExecute.subst(iop)
-}};
-
-////////////////////////////////////////////////////////////////////
-//
-// Vector memory operation instructions
-//
 def template VMemLoadStoreOpDeclare {{
     /**
      * Static instruction class for "%(mnemonic)s".
@@ -385,6 +390,15 @@ let {{
             completeAccTemplate.subst(iop))
 }};
 
+def format VMemLoadOp (
+    memacc_code, ea_code={{EA = Rs1}},
+    mem_flags=[], inst_flags=[]
+) {{
+    (header_output, decoder_output, decode_block, exec_output) = \
+        VMemLoadStoreOpBase(name, Name, memacc_code, ea_code,
+        mem_flags, inst_flags, 'VMemLoadOp', exec_template_base='VMemLoad')
+}};
+
 def template VMemLoadExecute {{
     Fault %(class_name)s::execute(
         ExecContext *xc, Trace::InstRecord *traceData) const
@@ -422,7 +436,7 @@ def template VMemLoadExecute {{
 
             if (fault != NoFault) return fault;
 
-            VLOOP({ %(memacc_code)s; });
+            %(memacc_code)s;
             %(op_wb)s;
         }
 
@@ -486,6 +500,16 @@ def template VMemLoadCompleteAcc {{
 
         return fault;
     }
+}};
+
+def format VMemLoadWholeOp (
+    memacc_code, ea_code={{EA = Rs1}},
+    mem_flags=[], inst_flags=[]
+) {{
+    (header_output, decoder_output, decode_block, exec_output) = \
+        VMemLoadStoreOpBase(name, Name, memacc_code, ea_code,
+        mem_flags, inst_flags, 'VMemLoadOp',
+        exec_template_base='VMemLoadWhole')
 }};
 
 def template VMemLoadWholeExecute {{
@@ -555,6 +579,88 @@ def template VMemLoadWholeCompleteAcc {{
     }
 }};
 
+def format VMemLoadMaskOp (
+    memacc_code, ea_code={{EA = Rs1}},
+    mem_flags=[], inst_flags=[]
+) {{
+    (header_output, decoder_output, decode_block, exec_output) = \
+        VMemLoadStoreOpBase(name, Name, memacc_code, ea_code,
+        mem_flags, inst_flags, 'VMemLoadOp',
+        exec_template_base='VMemLoadMask')
+}};
+
+def template VMemLoadMaskExecute {{
+    Fault %(class_name)s::execute(
+        ExecContext *xc, Trace::InstRecord *traceData) const
+    {
+        auto tc = xc->tcBase();
+        Fault fault = NoFault;
+        Addr EA;
+        size_t vl = tc->readMiscReg(MISCREG_VL);
+        auto bytes_to_read = (size_t)ceil((float)vl / 8.0);
+        size_t greg_idx = 0;
+
+        %(op_decl)s; %(op_rd)s; %(ea_code)s;
+
+        const std::vector<bool> byte_enable(bytes_to_read, true);
+        fault = readMemAtomic(xc, EA, Mem.as<uint8_t>(),
+            bytes_to_read, this->memAccessFlags, byte_enable);
+        if (fault != NoFault) return fault;
+
+        for (size_t i = 0; i < bytes_to_read; i++) {
+            %(memacc_code)s;
+        }
+        %(op_wb)s;
+        return fault;
+    }
+}};
+
+def template VMemLoadMaskInitiateAcc {{
+    Fault %(class_name)s::initiateAcc(ExecContext *xc,
+        Trace::InstRecord *traceData) const
+    {
+        Addr EA;
+
+        %(op_src_decl)s;
+        %(op_rd)s;
+        %(ea_code)s;
+
+        return initiateMemRead(xc, traceData, EA, Mem,
+            this->memAccessFlags);
+    }
+}};
+
+def template VMemLoadMaskCompleteAcc {{
+    Fault %(class_name)s::completeAcc(PacketPtr pkt, ExecContext *xc,
+        Trace::InstRecord *traceData) const
+    {
+        auto tc = xc->tcBase();
+        Fault fault = NoFault;
+        size_t vl = tc->readMiscReg(MISCREG_VL);
+        auto bytes_to_read = (size_t)ceil((float)vl / 8.0);
+        size_t greg_idx = 0;
+
+        %(op_decl)s; %(op_rd)s; %(ea_code)s;
+
+        memcpy(Mem.as<uint8_t>(), pkt->getPtr<uint8_t>(), bytes_to_read);
+        for (size_t i = 0; i < bytes_to_read; i++) {
+            %(memacc_code)s;
+        }
+        %(op_wb)s;
+        return fault;
+    }
+}};
+
+def format VMemStoreOp (
+    memacc_code, ea_code={{EA = Rs1}},
+    mem_flags=[], inst_flags=[]
+) {{
+    (header_output, decoder_output, decode_block, exec_output) = \
+        VMemLoadStoreOpBase(name, Name, memacc_code, ea_code,
+        mem_flags, inst_flags, 'VMemStoreOp',
+        exec_template_base='VMemStore')
+}};
+
 def template VMemStoreExecute {{
     Fault %(class_name)s::execute(
         ExecContext *xc, Trace::InstRecord *traceData) const
@@ -587,7 +693,7 @@ def template VMemStoreExecute {{
 
             if (fault != NoFault) return fault;
 
-            VLOOP({ %(memacc_code)s; });
+            %(memacc_code)s;
             %(op_wb)s;
 
             fault = writeMemAtomic(xc, Mem.as<uint8_t>(), EA + offset,
@@ -616,6 +722,16 @@ def template VMemStoreCompleteAcc {{
     }
 }};
 
+def format VMemStoreWholeOp (
+    memacc_code, ea_code={{EA = Rs1}},
+    mem_flags=[], inst_flags=[]
+) {{
+    (header_output, decoder_output, decode_block, exec_output) = \
+        VMemLoadStoreOpBase(name, Name, memacc_code, ea_code,
+        mem_flags, inst_flags, 'VMemStoreOp',
+        exec_template_base='VMemStoreWhole')
+}};
+
 def template VMemStoreWholeExecute {{
     Fault %(class_name)s::execute(
         ExecContext *xc, Trace::InstRecord *traceData) const
@@ -632,9 +748,9 @@ def template VMemStoreWholeExecute {{
             %(op_wb)s;
 
             const std::vector<bool> byte_enable(gem5::RiscvISA::vlenb, true);
-            auto offset = EA + gem5::RiscvISA::vlenb * greg_idx;
+            auto offset = gem5::RiscvISA::vlenb * greg_idx;
             fault = writeMemAtomic(xc, Mem.as<uint8_t>(),
-                offset, gem5::RiscvISA::vlenb,
+                EA + offset, gem5::RiscvISA::vlenb,
                 this->memAccessFlags, nullptr, byte_enable);
             if (fault != NoFault) return fault;
         }
@@ -659,41 +775,52 @@ def template VMemStoreWholeCompleteAcc {{
     }
 }};
 
-def format VMemLoadOp (
-    memacc_code, ea_code={{EA = Rs1}},
-    mem_flags=[], inst_flags=[]
-) {{
-    (header_output, decoder_output, decode_block, exec_output) = \
-        VMemLoadStoreOpBase(name, Name, memacc_code, ea_code,
-        mem_flags, inst_flags, 'VMemLoadOp', exec_template_base='VMemLoad')
-}};
-
-def format VMemLoadWholeOp (
-    memacc_code, ea_code={{EA = Rs1}},
-    mem_flags=[], inst_flags=[]
-) {{
-    (header_output, decoder_output, decode_block, exec_output) = \
-        VMemLoadStoreOpBase(name, Name, memacc_code, ea_code,
-        mem_flags, inst_flags, 'VMemLoadOp',
-        exec_template_base='VMemLoadWhole')
-}};
-
-def format VMemStoreOp (
+def format VMemStoreMaskOp (
     memacc_code, ea_code={{EA = Rs1}},
     mem_flags=[], inst_flags=[]
 ) {{
     (header_output, decoder_output, decode_block, exec_output) = \
         VMemLoadStoreOpBase(name, Name, memacc_code, ea_code,
         mem_flags, inst_flags, 'VMemStoreOp',
-        exec_template_base='VMemStore')
+        exec_template_base='VMemStoreMask')
 }};
 
-def format VMemStoreWholeOp (
-    memacc_code, ea_code={{EA = Rs1}},
-    mem_flags=[], inst_flags=[]
-) {{
-    (header_output, decoder_output, decode_block, exec_output) = \
-        VMemLoadStoreOpBase(name, Name, memacc_code, ea_code,
-        mem_flags, inst_flags, 'VMemStoreOp',
-        exec_template_base='VMemStoreWhole')
+def template VMemStoreMaskExecute {{
+    Fault %(class_name)s::execute(
+        ExecContext *xc, Trace::InstRecord *traceData) const
+    {
+        auto tc = xc->tcBase();
+        Fault fault = NoFault;
+        Addr EA;
+        size_t vl = tc->readMiscReg(MISCREG_VL);
+        auto bytes_to_read = (size_t)ceil((float)vl / 8.0);
+        size_t greg_idx = 0;
+
+        %(op_decl)s; %(op_rd)s; %(ea_code)s;
+        for (size_t i = 0; i < bytes_to_read; i++) {
+            %(memacc_code)s;
+        }
+        %(op_wb)s;
+
+        const std::vector<bool> byte_enable(bytes_to_read, true);
+        fault = writeMemAtomic(xc, Mem.as<uint8_t>(), EA, bytes_to_read,
+            this->memAccessFlags, nullptr, byte_enable);
+        return fault;
+    }
+}};
+
+def template VMemStoreMaskInitiateAcc {{
+    Fault %(class_name)s::initiateAcc(ExecContext *xc,
+        Trace::InstRecord *traceData) const
+    {
+        return execute(xc, traceData);
+    }
+}};
+
+def template VMemStoreMaskCompleteAcc {{
+    Fault %(class_name)s::completeAcc(PacketPtr pkt, ExecContext *xc,
+        Trace::InstRecord *traceData) const
+    {
+        return NoFault;
+    }
 }};
