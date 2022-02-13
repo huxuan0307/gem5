@@ -1625,6 +1625,42 @@ decode QUADRANT default Unknown::unknown() {
                             Vd_vu[i] = fd.v;
                         });
                     }}, VectorFloatOp);
+                    0x12: decode VS1 {
+                        0x00: vfcvt_xu_f_v({{
+                            VLOOP ({
+                                Vd_vu[i] = f_to_ui(ftype(Vs2_vu[i]),
+                                    softfloat_roundingMode, true);
+                            });
+                        }}, VectorFloatOp);
+                        0x01: vfcvt_x_f_v({{
+                            VLOOP ({
+                                Vd_vi[i] = f_to_i(ftype(Vs2_vu[i]),
+                                    softfloat_roundingMode, true);
+                            });
+                        }}, VectorFloatOp);
+                        0x02: vfcvt_f_xu_v({{
+                            VLOOP ({
+                                Vd_vu[i] = ui_to_f(Vs2_vu[i]).v;
+                            });
+                        }}, VectorFloatOp);
+                        0x03: vfcvt_f_x_v({{
+                            VLOOP ({
+                                Vd_vi[i] = i_to_f(Vs2_vu[i]).v;
+                            });
+                        }}, VectorFloatOp);
+                        0x06: vfcvt_rtz_xu_f_v({{
+                            VLOOP ({
+                                Vd_vu[i] = f_to_ui(ftype(Vs2_vu[i]),
+                                    softfloat_round_minMag, true);
+                            });
+                        }}, VectorFloatOp);
+                        0x07: vfcvt_rtz_x_f_v({{
+                            VLOOP ({
+                                Vd_vi[i] = f_to_i(ftype(Vs2_vu[i]),
+                                    softfloat_round_minMag, true);
+                            });
+                        }}, VectorFloatOp);
+                    }
                     0x13: vfsqrt_v({{
                         VLOOP ({
                             auto fd = fsqrt(ftype(Vs2_vu[i]));
