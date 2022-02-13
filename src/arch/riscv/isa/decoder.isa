@@ -1557,6 +1557,24 @@ decode QUADRANT default Unknown::unknown() {
                                 (Vs2_vi[i] <= Vs1_vi[i]));
                         });
                     }}, VectorIntOp);
+                    0x25: vsll_vv({{
+                        auto sewmask = sew_mask(vtype);
+                        VLOOP ({
+                            Vd_vu[i] = Vs2_vu[i] << (Vs1_vu[i] & sewmask);
+                        });
+                    }}, VectorIntOp);
+                    0x28: vsrl_vv({{
+                        auto sewmask = sew_mask(vtype);
+                        VLOOP ({
+                            Vd_vu[i] = Vs2_vu[i] >> (Vs1_vu[i] & sewmask);
+                        });
+                    }}, VectorIntOp);
+                    0x29: vsra_vv({{
+                        auto sewmask = sew_mask(vtype);
+                        VLOOP ({
+                            Vd_vi[i] = Vs2_vi[i] >> (Vs1_vu[i] & sewmask);
+                        });
+                    }}, VectorIntOp);
                 }
             }
             format VFloatOp {
@@ -1934,6 +1952,24 @@ decode QUADRANT default Unknown::unknown() {
                                 (Vs2_vi[i] > Rs1_vi));
                         });
                     }}, VectorIntOp);
+                    0x25: vsll_vx({{
+                        auto sewmask = sew_mask(vtype);
+                        VLOOP ({
+                            Vd_vu[i] = Vs2_vu[i] << (Rs1_vu & sewmask);
+                        });
+                    }}, VectorIntOp);
+                    0x28: vsrl_vx({{
+                        auto sewmask = sew_mask(vtype);
+                        VLOOP ({
+                            Vd_vu[i] = Vs2_vu[i] >> (Rs1_vu & sewmask);
+                        });
+                    }}, VectorIntOp);
+                    0x29: vsra_vx({{
+                        auto sewmask = sew_mask(vtype);
+                        VLOOP ({
+                            Vd_vi[i] = Vs2_vi[i] >> (Rs1_vu & sewmask);
+                        });
+                    }}, VectorIntOp);
                 }
             }
             // OPIVI
@@ -1990,6 +2026,24 @@ decode QUADRANT default Unknown::unknown() {
                         VLOOP ({
                             Vd_vu[i / sew] = ASSIGN_BIT(i, sew,
                                 (Vs2_vi[i] > sext<5>((vu)UIMM)));
+                        });
+                    }}, VectorIntOp);
+                    0x25: vsll_vi({{
+                        auto sewmask = sew_mask(vtype);
+                        VLOOP ({
+                            Vd_vu[i] = Vs2_vu[i] << ((vu)UIMM & sewmask);
+                        });
+                    }}, VectorIntOp);
+                    0x28: vsrl_vi({{
+                        auto sewmask = sew_mask(vtype);
+                        VLOOP ({
+                            Vd_vu[i] = Vs2_vu[i] >> ((vu)UIMM & sewmask);
+                        });
+                    }}, VectorIntOp);
+                    0x29: vsra_vi({{
+                        auto sewmask = sew_mask(vtype);
+                        VLOOP ({
+                            Vd_vi[i] = Vs2_vi[i] >> ((vu)UIMM & sewmask);
                         });
                     }}, VectorIntOp);
                 }

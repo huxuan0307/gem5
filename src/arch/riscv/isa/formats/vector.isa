@@ -2,6 +2,12 @@ output exec {{
     #define XLEN sizeof(RegVal) * 8
 
     inline uint64_t
+    sew_mask(const uint64_t vtype)
+    {
+        return (1 << (3 + bits(vtype, 5, 3))) - 1;
+    }
+
+    inline uint64_t
     SEW(const uint64_t vtype)
     {
         return 8 << bits(vtype, 5, 3);
