@@ -1604,6 +1604,27 @@ decode QUADRANT default Unknown::unknown() {
                             Vd_vu[i] = fd.v;
                         });
                     }}, VectorFloatOp);
+                    0x08: vfsgnj_vv({{
+                        VLOOP ({
+                            auto fd = fsgnj(
+                                Vs2_vu[i], Vs1_vu[i], false, false);
+                            Vd_vu[i] = fd.v;
+                        });
+                    }}, VectorFloatOp);
+                    0x09: vfsgnjn_vv({{
+                        VLOOP ({
+                            auto fd = fsgnj(
+                                Vs2_vu[i], Vs1_vu[i], true, false);
+                            Vd_vu[i] = fd.v;
+                        });
+                    }}, VectorFloatOp);
+                    0x0a: vfsgnjx_vv({{
+                        VLOOP ({
+                            auto fd = fsgnj(
+                                Vs2_vu[i], Vs1_vu[i], false, true);
+                            Vd_vu[i] = fd.v;
+                        });
+                    }}, VectorFloatOp);
                     0x18: vmfeq_vv({{
                         auto sew = SEW(vtype);
                         VLOOP ({
@@ -1684,6 +1705,27 @@ decode QUADRANT default Unknown::unknown() {
                     0x06: vfmax_vf({{
                         VLOOP ({
                             auto fd = fmax(ftype(Vs2_vu[i]), ftype(Fs1_bits));
+                            Vd_vu[i] = fd.v;
+                        });
+                    }}, VectorFloatOp);
+                    0x08: vfsgnj_vf({{
+                        VLOOP ({
+                            auto fd = fsgnj(
+                                Vs2_vu[i], Fs1_bits, false, false);
+                            Vd_vu[i] = fd.v;
+                        });
+                    }}, VectorFloatOp);
+                    0x09: vfsgnjn_vf({{
+                        VLOOP ({
+                            auto fd = fsgnj(
+                                Vs2_vu[i], Fs1_bits, true, false);
+                            Vd_vu[i] = fd.v;
+                        });
+                    }}, VectorFloatOp);
+                    0x0a: vfsgnjx_vf({{
+                        VLOOP ({
+                            auto fd = fsgnj(
+                                Vs2_vu[i], Fs1_bits, false, true);
                             Vd_vu[i] = fd.v;
                         });
                     }}, VectorFloatOp);

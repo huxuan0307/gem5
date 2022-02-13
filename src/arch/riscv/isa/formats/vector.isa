@@ -84,6 +84,18 @@ output exec {{
 
     #define ASSIGN_BIT(i, sew, res) \
     ((Vd[i/sew] &= ~(1 << i % sew)) |= ((res) << i % sew))
+
+    #define F32_SIGN ((uint32_t)1 << 31)
+    #define F64_SIGN ((uint64_t)1 << 63)
+
+    #define FSGNJ32(a, b, n, x) \
+    f32((f32(a).v & ~F32_SIGN) |\
+        ((((x) ? f32(a).v : (n) ? F32_SIGN : 0) ^ f32(b).v) & F32_SIGN))
+
+    #define FSGNJ64(a, b, n, x) \
+    f64((f64(a).v & ~F64_SIGN) |\
+    ((((x) ? f64(a).v : (n) ? F64_SIGN : 0) ^ f64(b).v) & F64_SIGN))
+
 }};
 
 def format VConfOp(code, *flags) {{
@@ -230,6 +242,10 @@ def template VFloatExecute {{
                         feq = f32_eq;
                     std::function<float32_t(float32_t, float32_t, float32_t)>
                         fmadd = f32_mulAdd;
+                    [[maybe_unused]] auto fsgnj =
+                        [&](vu a, vu b, bool n, bool x){
+                            return FSGNJ32(a, b, n, x);
+                        };
 
                     %(op_decl)s; %(op_rd)s;
 
@@ -262,6 +278,10 @@ def template VFloatExecute {{
                         feq = f64_eq;
                     std::function<float64_t(float64_t, float64_t, float64_t)>
                         fmadd = f64_mulAdd;
+                    [[maybe_unused]] auto fsgnj =
+                        [&](vu a, vu b, bool n, bool x){
+                            return FSGNJ64(a, b, n, x);
+                        };
 
                     %(op_decl)s; %(op_rd)s;
 
