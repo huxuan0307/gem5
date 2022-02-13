@@ -1663,15 +1663,27 @@ decode QUADRANT default Unknown::unknown() {
                 }
                 // OPFVF
                 0x5: decode VFUNCT6 {
-                    0x0: vfadd_vf({{
+                    0x00: vfadd_vf({{
                         VLOOP ({
                             auto fd = fadd(ftype(Vs2_vu[i]), ftype(Fs1_bits));
                             Vd_vu[i] = fd.v;
                         });
                     }}, VectorFloatOp);
-                    0x2: vfsub_vf({{
+                    0x02: vfsub_vf({{
                         VLOOP ({
                             auto fd = fsub(ftype(Vs2_vu[i]), ftype(Fs1_bits));
+                            Vd_vu[i] = fd.v;
+                        });
+                    }}, VectorFloatOp);
+                    0x04: vfmin_vf({{
+                        VLOOP ({
+                            auto fd = fmin(ftype(Vs2_vu[i]), ftype(Fs1_bits));
+                            Vd_vu[i] = fd.v;
+                        });
+                    }}, VectorFloatOp);
+                    0x06: vfmax_vf({{
+                        VLOOP ({
+                            auto fd = fmax(ftype(Vs2_vu[i]), ftype(Fs1_bits));
                             Vd_vu[i] = fd.v;
                         });
                     }}, VectorFloatOp);
