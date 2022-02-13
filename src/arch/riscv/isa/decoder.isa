@@ -1586,11 +1586,25 @@ decode QUADRANT default Unknown::unknown() {
                             Vd_vu[i] = fd.v;
                         });
                     }}, VectorFloatOp);
+                    0x01: vfredusum_vs({{
+                        auto fd = ftype(Vs1_vu[0]);
+                        VLOOP ({
+                            fd = fadd(fd, ftype(Vs2_vu[i]));
+                        });
+                        Vd_vu[0] = fd.v;
+                    }}, VectorFloatOp);
                     0x02: vfsub_vv({{
                         VLOOP ({
                             auto fd = fsub(ftype(Vs2_vu[i]), ftype(Vs1_vu[i]));
                             Vd_vu[i] = fd.v;
                         });
+                    }}, VectorFloatOp);
+                    0x03: vfredosum_vs({{
+                        auto fd = ftype(Vs1_vu[0]);
+                        VLOOP ({
+                            fd = fadd(fd, ftype(Vs2_vu[i]));
+                        });
+                        Vd_vu[0] = fd.v;
                     }}, VectorFloatOp);
                     0x04: vfmin_vv({{
                         VLOOP ({
@@ -1598,11 +1612,25 @@ decode QUADRANT default Unknown::unknown() {
                             Vd_vu[i] = fd.v;
                         });
                     }}, VectorFloatOp);
+                    0x05: vfredmin_vs({{
+                        auto fd = ftype(Vs1_vu[0]);
+                        VLOOP ({
+                            fd = fmin(fd, ftype(Vs2_vu[i]));
+                        });
+                        Vd_vu[0] = fd.v;
+                    }}, VectorFloatOp);
                     0x06: vfmax_vv({{
                         VLOOP ({
                             auto fd = fmax(ftype(Vs2_vu[i]), ftype(Vs1_vu[i]));
                             Vd_vu[i] = fd.v;
                         });
+                    }}, VectorFloatOp);
+                    0x07: vfredmax_vs({{
+                        auto fd = ftype(Vs1_vu[0]);
+                        VLOOP ({
+                            fd = fmax(fd, ftype(Vs2_vu[i]));
+                        });
+                        Vd_vu[0] = fd.v;
                     }}, VectorFloatOp);
                     0x08: vfsgnj_vv({{
                         VLOOP ({
