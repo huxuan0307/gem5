@@ -1625,6 +1625,12 @@ decode QUADRANT default Unknown::unknown() {
                             Vd_vu[i] = fd.v;
                         });
                     }}, VectorFloatOp);
+                    0x13: vfsqrt_v({{
+                        VLOOP ({
+                            auto fd = fsqrt(ftype(Vs2_vu[i]));
+                            Vd_vu[i] = fd.v;
+                        });
+                    }}, VectorFloatOp);
                     0x18: vmfeq_vv({{
                         auto sew = SEW(vtype);
                         VLOOP ({
