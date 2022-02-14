@@ -118,7 +118,7 @@ output exec {{
     for (; ei < vl; ei++) {                         \
         size_t i = ei - vlmax_per_reg * greg_idx;   \
         if (i >= vlmax_per_reg) break;              \
-        if(vm || elem_mask(v0, i)) __VA_ARGS__      \
+        if(vm || elem_mask(v0, ei)) __VA_ARGS__      \
     }
 }};
 
