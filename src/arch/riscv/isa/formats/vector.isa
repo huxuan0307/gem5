@@ -71,19 +71,30 @@ output exec {{
         return width == 0 ? 8 : (1 << (width - 1));
     }
 
+    template<typename Type>
+    bool inline carry_out(Type a, Type b, bool carry_in = false) {
+        using TypeU = std::make_unsigned_t<Type>;
+        TypeU s = *reinterpret_cast<TypeU*>(&a)
+                + *reinterpret_cast<TypeU*>(&b) + carry_in;
+        return carry_in
+            ? (s <= *reinterpret_cast<TypeU*>(&a))
+            : (s <  *reinterpret_cast<TypeU*>(&a));
+    }
+
+    template<typename Type>
+    bool inline borrow_out(Type a, Type b, bool borrow_in = false) {
+        using TypeU = std::make_unsigned_t<Type>;
+        return borrow_in
+            ? (*reinterpret_cast<TypeU*>(&a) <= *reinterpret_cast<TypeU*>(&b))
+            : (*reinterpret_cast<TypeU*>(&a) <  *reinterpret_cast<TypeU*>(&b));
+    }
+
     #define CHECK_VILL                                                      \
     if (bits(tc->readMiscReg(MISCREG_VTYPE), XLEN - 1))                     \
         return std::make_shared<IllegalInstFault>("VILL is set", machInst);
 
-    #define VLOOP(...)                              \
-    for (; ei < vl; ei++) {                         \
-        size_t i = ei - vlmax_per_reg * greg_idx;   \
-        if (i >= vlmax_per_reg) break;              \
-        if(vm || elem_mask(v0, i)) __VA_ARGS__      \
-    }
-
-    #define ASSIGN_BIT(i, sew, res) \
-    ((Vd[i/sew] &= ~(1 << i % sew)) |= ((res) << i % sew))
+    #define ASSIGN_VD_BIT(i, bit) \
+        ((Vd[i/64] & ~(1 << i % 64)) | ((bit) << i % 64))
 
     #define F32_SIGN ((uint32_t)1 << 31)
     #define F64_SIGN ((uint64_t)1 << 63)
@@ -96,6 +107,19 @@ output exec {{
     f64((f64(a).v & ~F64_SIGN) |\
     ((((x) ? f64(a).v : (n) ? F64_SIGN : 0) ^ f64(b).v) & F64_SIGN))
 
+    #define VLOOP(...)                        \
+    for (; ei < vl; ei++) {                         \
+        size_t i = ei - vlmax_per_reg * greg_idx;   \
+        if (i >= vlmax_per_reg) break;              \
+        __VA_ARGS__                                 \
+    }
+
+    #define VLOOP_IF_MASK(...)                      \
+    for (; ei < vl; ei++) {                         \
+        size_t i = ei - vlmax_per_reg * greg_idx;   \
+        if (i >= vlmax_per_reg) break;              \
+        if(vm || elem_mask(v0, i)) __VA_ARGS__      \
+    }
 }};
 
 def format VConfOp(code, *flags) {{
@@ -149,7 +173,7 @@ def template VIntExecute {{
         uint64_t vl = tc->readMiscReg(MISCREG_VL);
         uint64_t vtype = tc->readMiscReg(MISCREG_VTYPE);
         const RiscvISA::vreg_t& tmp_v0 = tc->readVecReg(RegId(VecRegClass, 0));
-        auto v0 = tmp_v0.as<uint64_t>();
+        [[maybe_unused]] auto v0 = tmp_v0.as<uint64_t>();
         auto nums = reg_group_nums(vtype);
         auto vlmax_per_reg = VLMAX(vtype, true);
         size_t greg_idx = 0, ei = 0;
@@ -216,7 +240,7 @@ def template VFloatExecute {{
         uint64_t vl = tc->readMiscReg(MISCREG_VL);
         uint64_t vtype = tc->readMiscReg(MISCREG_VTYPE);
         const RiscvISA::vreg_t& tmp_v0 = tc->readVecReg(RegId(VecRegClass, 0));
-        auto v0 = tmp_v0.as<uint64_t>();
+        [[maybe_unused]] auto v0 = tmp_v0.as<uint64_t>();
 
         auto nums = reg_group_nums(vtype);
         auto vlmax_per_reg = VLMAX(vtype, true);
@@ -462,7 +486,7 @@ def template VMemLoadExecute {{
         if (fault != NoFault) return fault;
 
         const RiscvISA::vreg_t& tmp_v0 = tc->readVecReg(RegId(VecRegClass, 0));
-        auto v0 = tmp_v0.as<uint64_t>();
+        [[maybe_unused]] auto v0 = tmp_v0.as<uint64_t>();
 
         auto nums = reg_group_nums(vtype);
         auto vlmax_per_reg = VLMAX(vtype, true);
@@ -524,7 +548,7 @@ def template VMemLoadCompleteAcc {{
 
         const RiscvISA::vreg_t& tmp_v0 =
             tc->readVecReg(RegId(VecRegClass, 0));
-        auto v0 = tmp_v0.as<uint64_t>();
+        [[maybe_unused]] auto v0 = tmp_v0.as<uint64_t>();
 
         auto nums = reg_group_nums(vtype);
         auto vlmax_per_reg = VLMAX(vtype, true);
@@ -719,7 +743,7 @@ def template VMemStoreExecute {{
         uint64_t vtype = tc->readMiscReg(MISCREG_VTYPE);
 
         const RiscvISA::vreg_t& tmp_v0 = tc->readVecReg(RegId(VecRegClass, 0));
-        auto v0 = tmp_v0.as<uint64_t>();
+        [[maybe_unused]] auto v0 = tmp_v0.as<uint64_t>();
 
         auto nums = reg_group_nums(vtype);
         auto vlmax_per_reg = VLMAX(vtype, true);

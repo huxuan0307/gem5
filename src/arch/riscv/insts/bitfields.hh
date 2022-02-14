@@ -20,6 +20,7 @@
 #define BIT30   bits(machInst, 30)
 #define ZIMM    bits(machInst, 30, 20)
 #define UIMM    bits(machInst, 19, 15)
+#define VECIMM  bits(machInst, 19, 15)
 
 #define VM      bits(machInst, 25)
 
