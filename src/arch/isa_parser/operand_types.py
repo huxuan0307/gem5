@@ -442,6 +442,7 @@ class VecRegOperand(Operand):
             return self.buildWriteCode(predWrite, func)
 
         wb = '''
+        xc->setVecRegOperand(this, 0, tmp_d%d);
         if (traceData) {
             traceData->setData(tmp_d%d);
         }

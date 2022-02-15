@@ -38,7 +38,7 @@ output exec {{
         int64_t lmul = (int64_t)sext<3>(bits(vtype, 2, 0));
         lmul = per_reg ? std::min<int64_t>(0, lmul) : lmul;
         int64_t vsew = bits(vtype, 5, 3);
-        return gem5::RiscvISA::VLEN >> (vsew + 3 - lmul);
+        return TheISA::VLEN >> (vsew + 3 - lmul);
     }
 
     inline uint64_t
@@ -54,25 +54,28 @@ output exec {{
      *  https://github.com/qemu/qemu/blob/c7d773ae/target/riscv/vector_helper.c
     */
     inline int
-    elem_mask(const uint64_t *v0, const int index)
+    elem_mask(const uint8_t* v0, const int index)
     {
-        int idx = index / 64;
-        int pos = index % 64;
+        int idx = index / 8;
+        int pos = index % 8;
         return (v0[idx] >> pos) & 1;
     }
 
-    inline void set_vill(uint64_t& vtype)
+    inline void
+    set_vill(uint64_t& vtype)
     {
         vtype = (uint64_t)0 ^ (1UL << (XLEN-1));
     }
 
-    inline size_t mem_bits(const uint8_t width)
+    inline size_t
+    mem_bits(const uint8_t width)
     {
         return width == 0 ? 8 : (1 << (width - 1));
     }
 
     template<typename Type>
-    bool inline carry_out(Type a, Type b, bool carry_in = false) {
+    bool inline
+    carry_out(Type a, Type b, bool carry_in = false) {
         using TypeU = std::make_unsigned_t<Type>;
         TypeU s = *reinterpret_cast<TypeU*>(&a)
                 + *reinterpret_cast<TypeU*>(&b) + carry_in;
@@ -82,32 +85,37 @@ output exec {{
     }
 
     template<typename Type>
-    bool inline borrow_out(Type a, Type b, bool borrow_in = false) {
+    bool inline
+    borrow_out(Type a, Type b, bool borrow_in = false) {
         using TypeU = std::make_unsigned_t<Type>;
         return borrow_in
             ? (*reinterpret_cast<TypeU*>(&a) <= *reinterpret_cast<TypeU*>(&b))
             : (*reinterpret_cast<TypeU*>(&a) <  *reinterpret_cast<TypeU*>(&b));
     }
 
+    inline uint32_t
+    fsgnj32(uint32_t a, uint32_t b, bool n, bool x) {
+        auto b1 = unboxF32(b);
+        if (n) b1 = unboxF32(~b);
+        else if (x) b1 = unboxF32(a) ^ unboxF32(b);
+        return boxF32(insertBits(b1, 30, 0, unboxF32(a)));
+    }
+
+    inline uint64_t
+    fsgnj64(uint64_t a, uint64_t b, bool n, bool x) {
+        if (n) b = ~b;
+        else if (x) b = a ^ b;
+        return insertBits(b, 62, 0, a);
+    }
+
     #define CHECK_VILL                                                      \
     if (bits(tc->readMiscReg(MISCREG_VTYPE), XLEN - 1))                     \
         return std::make_shared<IllegalInstFault>("VILL is set", machInst);
 
-    #define ASSIGN_VD_BIT(i, bit) \
-        ((Vd[i/64] & ~(1 << i % 64)) | ((bit) << i % 64))
+    #define ASSIGN_VD_BIT(idx, bit) \
+    ((Vds[(idx)/8] & ~(1 << (idx)%8)) | ((bit) << (idx)%8))
 
-    #define F32_SIGN ((uint32_t)1 << 31)
-    #define F64_SIGN ((uint64_t)1 << 63)
-
-    #define FSGNJ32(a, b, n, x) \
-    f32((f32(a).v & ~F32_SIGN) |\
-        ((((x) ? f32(a).v : (n) ? F32_SIGN : 0) ^ f32(b).v) & F32_SIGN))
-
-    #define FSGNJ64(a, b, n, x) \
-    f64((f64(a).v & ~F64_SIGN) |\
-    ((((x) ? f64(a).v : (n) ? F64_SIGN : 0) ^ f64(b).v) & F64_SIGN))
-
-    #define VLOOP(...)                        \
+    #define VLOOP(...)                              \
     for (; ei < vl; ei++) {                         \
         size_t i = ei - vlmax_per_reg * greg_idx;   \
         if (i >= vlmax_per_reg) break;              \
@@ -118,7 +126,7 @@ output exec {{
     for (; ei < vl; ei++) {                         \
         size_t i = ei - vlmax_per_reg * greg_idx;   \
         if (i >= vlmax_per_reg) break;              \
-        if(vm || elem_mask(v0, ei)) __VA_ARGS__      \
+        if(vm || elem_mask(v0, ei)) __VA_ARGS__     \
     }
 }};
 
@@ -172,13 +180,14 @@ def template VIntExecute {{
 
         uint64_t vl = tc->readMiscReg(MISCREG_VL);
         uint64_t vtype = tc->readMiscReg(MISCREG_VTYPE);
-        const RiscvISA::vreg_t& tmp_v0 = tc->readVecReg(RegId(VecRegClass, 0));
-        [[maybe_unused]] auto v0 = tmp_v0.as<uint64_t>();
+        const TheISA::vreg_t& tmp_v0 = tc->readVecReg(RegId(VecRegClass, 0));
+        [[maybe_unused]] auto v0 = tmp_v0.as<uint8_t>();
         auto nums = reg_group_nums(vtype);
-        auto vlmax_per_reg = VLMAX(vtype, true);
+        [[maybe_unused]] auto vlmax_per_reg = VLMAX(vtype, true);
         size_t greg_idx = 0, ei = 0;
 
-        for (; greg_idx < nums; greg_idx++) {
+        bool break_loop = false;
+        for (; greg_idx < nums && !break_loop; greg_idx++) {
             if (ei >= vl) break;
             switch (SEW(vtype)) {
                 case 8: {
@@ -214,6 +223,99 @@ def template VIntExecute {{
     }
 }};
 
+def template VArithMaskDeclare {{
+    class %(class_name)s : public %(base_class)s
+    {
+      private:
+        // Add dest reg manually for VArithMask insts
+        RegId srcRegIdxArr[2];
+        RegId destRegIdxArr[1];
+
+      public:
+        %(class_name)s(MachInst machInst);
+        Fault execute(ExecContext *, Trace::InstRecord *) const override;
+        using %(base_class)s::generateDisassembly;
+    };
+}};
+
+def template VArithMaskConstructor {{
+    %(class_name)s::%(class_name)s(MachInst machInst):
+        %(base_class)s("%(mnemonic)s", machInst, %(op_class)s)
+    {
+        %(set_reg_idx_arr)s;
+        %(constructor)s;
+        // Add dest reg manually for VArithMask insts
+        setDestRegIdx(_numDestRegs++, RegId(VecRegClass, VD));
+        _numVecDestRegs++;
+    };
+}};
+
+def format VIntMaskOp(code, *flags) {{
+    iop = InstObjParams(name, Name, 'VArithOp', code, flags)
+    header_output = VArithMaskDeclare.subst(iop)
+    decoder_output = VArithMaskConstructor.subst(iop)
+    decode_block = BasicDecode.subst(iop)
+    exec_output = VIntMaskExecute.subst(iop)
+}};
+
+def template VIntMaskExecute {{
+    Fault
+    %(class_name)s::execute(ExecContext *xc,
+        Trace::InstRecord *traceData) const
+    {
+        auto tc = xc->tcBase();
+        CHECK_VILL;
+
+        uint64_t vl = tc->readMiscReg(MISCREG_VL);
+        uint64_t vtype = tc->readMiscReg(MISCREG_VTYPE);
+        const TheISA::vreg_t& tmp_v0 = tc->readVecReg(RegId(VecRegClass, 0));
+        [[maybe_unused]] auto v0 = tmp_v0.as<uint8_t>();
+        auto nums = reg_group_nums(vtype);
+        [[maybe_unused]] auto vlmax_per_reg = VLMAX(vtype, true);
+        size_t greg_idx = 0, ei = 0;
+
+        TheISA::VecRegContainer tmp_d0 =
+            xc->getWritableVecRegOperand(this, 0);
+        auto Vds = tmp_d0.as<uint8_t>();
+
+        for (; greg_idx < nums; greg_idx++) {
+            if (ei >= vl) break;
+            switch (SEW(vtype)) {
+                case 8: {
+                    using vi [[maybe_unused]] = int8_t;
+                    using vu [[maybe_unused]] = uint8_t;
+                    %(op_decl)s; %(op_rd)s; %(code)s; %(op_wb)s;
+                    break;
+                }
+                case 16: {
+                    using vi [[maybe_unused]] = int16_t;
+                    using vu [[maybe_unused]] = uint16_t;
+                    %(op_decl)s; %(op_rd)s; %(code)s; %(op_wb)s;
+                    break;
+                }
+                case 32: {
+                    using vi [[maybe_unused]] = int32_t;
+                    using vu [[maybe_unused]] = uint32_t;
+                    %(op_decl)s; %(op_rd)s; %(code)s; %(op_wb)s;
+                    break;
+                }
+                case 64: {
+                    using vi [[maybe_unused]] = int64_t;
+                    using vu [[maybe_unused]] = uint64_t;
+                    %(op_decl)s; %(op_rd)s; %(code)s; %(op_wb)s;
+                    break;
+                }
+                default:
+                    panic("Invalid SEW");
+            }
+        }
+        xc->setVecRegOperand(this, 0, tmp_d0);
+        if (traceData) {
+            traceData->setData(tmp_d0);
+        }
+        return NoFault;
+    }
+}};
 
 def format VFloatOp(code, *flags) {{
     iop = InstObjParams(name, Name, 'VArithOp', code, flags)
@@ -239,8 +341,8 @@ def template VFloatExecute {{
 
         uint64_t vl = tc->readMiscReg(MISCREG_VL);
         uint64_t vtype = tc->readMiscReg(MISCREG_VTYPE);
-        const RiscvISA::vreg_t& tmp_v0 = tc->readVecReg(RegId(VecRegClass, 0));
-        [[maybe_unused]] auto v0 = tmp_v0.as<uint64_t>();
+        const TheISA::vreg_t& tmp_v0 = tc->readVecReg(RegId(VecRegClass, 0));
+        [[maybe_unused]] auto v0 = tmp_v0.as<uint8_t>();
 
         auto nums = reg_group_nums(vtype);
         auto vlmax_per_reg = VLMAX(vtype, true);
@@ -263,16 +365,10 @@ def template VFloatExecute {{
                         fmax = f32_max,
                         fdiv = f32_div,
                         fmul = f32_mul;
-                    std::function<bool(float32_t, float32_t)>
-                        fle = f32_le,
-                        flt = f32_lt,
-                        feq = f32_eq;
                     std::function<float32_t(float32_t, float32_t, float32_t)>
                         fmadd = f32_mulAdd;
-                    [[maybe_unused]] auto fsgnj =
-                        [&](vu a, vu b, bool n, bool x){
-                            return FSGNJ32(a, b, n, x);
-                        };
+                    std::function<vu(vu, vu, bool, bool)>
+                        fsgnj = fsgnj32;
                     [[maybe_unused]] auto f_to_ui = f32_to_ui32;
                     [[maybe_unused]] auto f_to_i =  f32_to_i32;
                     [[maybe_unused]] auto ui_to_f = ui32_to_f32;
@@ -306,16 +402,10 @@ def template VFloatExecute {{
                         fmax = f64_max,
                         fdiv = f64_div,
                         fmul = f64_mul;
-                    std::function<bool(float64_t, float64_t)>
-                        fle = f64_le,
-                        flt = f64_lt,
-                        feq = f64_eq;
                     std::function<float64_t(float64_t, float64_t, float64_t)>
                         fmadd = f64_mulAdd;
-                    [[maybe_unused]] auto fsgnj =
-                        [&](vu a, vu b, bool n, bool x){
-                            return FSGNJ64(a, b, n, x);
-                        };
+                    std::function<vu(vu, vu, bool, bool)>
+                        fsgnj = fsgnj64;
                     [[maybe_unused]] auto f_to_ui = f64_to_ui64;
                     [[maybe_unused]] auto f_to_i =  f64_to_i64;
                     [[maybe_unused]] auto ui_to_f = ui64_to_f64;
@@ -347,6 +437,103 @@ def template VFloatExecute {{
     }
 }};
 
+def format VFloatMaskOp(code, *flags) {{
+    iop = InstObjParams(name, Name, 'VArithOp', code, flags)
+    header_output = VArithMaskDeclare.subst(iop)
+    decoder_output = VArithMaskConstructor.subst(iop)
+    decode_block = BasicDecode.subst(iop)
+    exec_output = VFloatMaskExecute.subst(iop)
+}};
+
+def template VFloatMaskExecute {{
+    Fault
+    %(class_name)s::execute(ExecContext *xc,
+        Trace::InstRecord *traceData) const
+    {
+        auto tc = xc->tcBase();
+        CHECK_VILL;
+
+        STATUS status = xc->readMiscReg(MISCREG_STATUS);
+        if (status.fs == FPUStatus::OFF)
+            return std::make_shared<IllegalInstFault>("VFPU is off", machInst);
+
+        VRM_REQUIRED;
+
+        uint64_t vl = tc->readMiscReg(MISCREG_VL);
+        uint64_t vtype = tc->readMiscReg(MISCREG_VTYPE);
+        const TheISA::vreg_t& tmp_v0 = tc->readVecReg(RegId(VecRegClass, 0));
+        [[maybe_unused]] auto v0 = tmp_v0.as<uint8_t>();
+
+        auto nums = reg_group_nums(vtype);
+        auto vlmax_per_reg = VLMAX(vtype, true);
+        size_t greg_idx = 0, ei = 0;
+
+        TheISA::VecRegContainer tmp_d0 =
+            xc->getWritableVecRegOperand(this, 0);
+        auto Vds = tmp_d0.as<uint8_t>();
+
+        for (; greg_idx < nums; greg_idx++) {
+            if (ei >= vl) break;
+            switch (SEW(vtype)) {
+                case 32: {
+                    using vi [[maybe_unused]] = int32_t;
+                    using vu = uint32_t;
+                    std::function<float32_t(vu)> ftype =
+                        [&](vu v){ return f32(v); };
+                    std::function<bool(float32_t, float32_t)>
+                        fle = f32_le,
+                        flt = f32_lt,
+                        feq = f32_eq;
+
+                    %(op_decl)s; %(op_rd)s; %(op_wb)s;
+
+                    RegVal FFLAGS = xc->readMiscReg(MISCREG_FFLAGS);
+                    std::feclearexcept(FE_ALL_EXCEPT);
+
+                    %(code)s;
+
+                    FFLAGS |= softfloat_exceptionFlags;
+                    softfloat_exceptionFlags = 0;
+                    xc->setMiscReg(MISCREG_FFLAGS, FFLAGS);
+                    break;
+                }
+                case 64: {
+                    using vi [[maybe_unused]] = int64_t;
+                    using vu = uint64_t;
+                    std::function<float64_t(vu)> ftype =
+                        [&](vu v){ return f64(v); };
+                    std::function<bool(float64_t, float64_t)>
+                        fle = f64_le,
+                        flt = f64_lt,
+                        feq = f64_eq;
+
+                    %(op_decl)s; %(op_rd)s; %(op_wb)s;
+
+                    RegVal FFLAGS = xc->readMiscReg(MISCREG_FFLAGS);
+                    std::feclearexcept(FE_ALL_EXCEPT);
+
+                    %(code)s;
+
+                    FFLAGS |= softfloat_exceptionFlags;
+                    softfloat_exceptionFlags = 0;
+                    xc->setMiscReg(MISCREG_FFLAGS, FFLAGS);
+                    break;
+                }
+                default:
+                    auto message = "VFPU does not support float" +
+                                    std::to_string(SEW(vtype));
+                    return std::make_shared<IllegalInstFault>(message,
+                        machInst);
+            }
+        }
+        xc->setVecRegOperand(this, 0, tmp_d0);
+        if (traceData) {
+            traceData->setData(tmp_d0);
+        }
+        return NoFault;
+    }
+}};
+
 def format VMvWholeOp(code, *flags) {{
     iop = InstObjParams(name, Name, 'VArithOp', code, flags)
     header_output = VMvWholeDeclare.subst(iop)
@@ -364,7 +551,7 @@ def template VMvWholeExecute {{
         // TODO: If vd is equal to vs2 the instruction is an architectural NOP
         size_t NREG = SIMM_3 + 1;
         for (size_t greg_idx = 0; greg_idx < NREG; greg_idx++) {
-            for (size_t i = 0; i < gem5::RiscvISA::NumVecElemPerVecReg; i++) {
+            for (size_t i = 0; i < TheISA::NumVecElemPerVecReg; i++) {
                 %(op_decl)s; %(op_rd)s; %(code)s; %(op_wb)s;
             }
         }
@@ -485,8 +672,8 @@ def template VMemLoadExecute {{
 
         if (fault != NoFault) return fault;
 
-        const RiscvISA::vreg_t& tmp_v0 = tc->readVecReg(RegId(VecRegClass, 0));
-        [[maybe_unused]] auto v0 = tmp_v0.as<uint64_t>();
+        const TheISA::vreg_t& tmp_v0 = tc->readVecReg(RegId(VecRegClass, 0));
+        [[maybe_unused]] auto v0 = tmp_v0.as<uint8_t>();
 
         auto nums = reg_group_nums(vtype);
         auto vlmax_per_reg = VLMAX(vtype, true);
@@ -546,9 +733,9 @@ def template VMemLoadCompleteAcc {{
 
         if (fault != NoFault) return fault;
 
-        const RiscvISA::vreg_t& tmp_v0 =
+        const TheISA::vreg_t& tmp_v0 =
             tc->readVecReg(RegId(VecRegClass, 0));
-        [[maybe_unused]] auto v0 = tmp_v0.as<uint64_t>();
+        [[maybe_unused]] auto v0 = tmp_v0.as<uint8_t>();
 
         auto nums = reg_group_nums(vtype);
         auto vlmax_per_reg = VLMAX(vtype, true);
@@ -588,14 +775,14 @@ def template VMemLoadWholeExecute {{
         Addr EA;
 
         size_t NFIELDS = NF + 1;
-        size_t elem_per_reg = gem5::RiscvISA::VLEN / mem_bits(WIDTH);
+        size_t elem_per_reg = TheISA::VLEN / mem_bits(WIDTH);
         for (size_t greg_idx = 0; greg_idx < NFIELDS; greg_idx++) {
             %(op_decl)s; %(op_rd)s; %(ea_code)s;
 
-            auto offset = gem5::RiscvISA::vlenb * greg_idx;
-            const std::vector<bool> byte_enable(gem5::RiscvISA::vlenb, true);
+            auto offset = TheISA::vlenb * greg_idx;
+            const std::vector<bool> byte_enable(TheISA::vlenb, true);
             fault = readMemAtomic(xc, EA + offset, Mem.as<uint8_t>(),
-                gem5::RiscvISA::vlenb, this->memAccessFlags, byte_enable);
+                TheISA::vlenb, this->memAccessFlags, byte_enable);
 
             if (fault != NoFault) return fault;
 
@@ -629,13 +816,13 @@ def template VMemLoadWholeCompleteAcc {{
         Trace::InstRecord *traceData) const
     {
         size_t NFIELDS = NF + 1;
-        size_t elem_per_reg = gem5::RiscvISA::VLEN / mem_bits(WIDTH);
+        size_t elem_per_reg = TheISA::VLEN / mem_bits(WIDTH);
         for (size_t greg_idx = 0; greg_idx < NFIELDS; greg_idx++) {
             %(op_decl)s; %(op_rd)s;
 
-            auto offset = gem5::RiscvISA::vlenb * greg_idx;
+            auto offset = TheISA::vlenb * greg_idx;
             memcpy(Mem.as<uint8_t>(), pkt->getPtr<uint8_t>() + offset,
-                   gem5::RiscvISA::vlenb);
+                   TheISA::vlenb);
 
             for (size_t i = 0; i < elem_per_reg; i++) {
                 %(memacc_code)s;
@@ -742,8 +929,8 @@ def template VMemStoreExecute {{
         size_t vl = tc->readMiscReg(MISCREG_VL);
         uint64_t vtype = tc->readMiscReg(MISCREG_VTYPE);
 
-        const RiscvISA::vreg_t& tmp_v0 = tc->readVecReg(RegId(VecRegClass, 0));
-        [[maybe_unused]] auto v0 = tmp_v0.as<uint64_t>();
+        const TheISA::vreg_t& tmp_v0 = tc->readVecReg(RegId(VecRegClass, 0));
+        [[maybe_unused]] auto v0 = tmp_v0.as<uint8_t>();
 
         auto nums = reg_group_nums(vtype);
         auto vlmax_per_reg = VLMAX(vtype, true);
@@ -810,15 +997,15 @@ def template VMemStoreWholeExecute {{
         size_t NFIELDS = NF + 1;
         for (size_t greg_idx = 0; greg_idx < NFIELDS; greg_idx++) {
             %(op_decl)s; %(op_rd)s; %(ea_code)s;
-            for (size_t i = 0; i < gem5::RiscvISA::NumVecElemPerVecReg; i++) {
+            for (size_t i = 0; i < TheISA::NumVecElemPerVecReg; i++) {
                 %(memacc_code)s;
             }
             %(op_wb)s;
 
-            const std::vector<bool> byte_enable(gem5::RiscvISA::vlenb, true);
-            auto offset = gem5::RiscvISA::vlenb * greg_idx;
+            const std::vector<bool> byte_enable(TheISA::vlenb, true);
+            auto offset = TheISA::vlenb * greg_idx;
             fault = writeMemAtomic(xc, Mem.as<uint8_t>(),
-                EA + offset, gem5::RiscvISA::vlenb,
+                EA + offset, TheISA::vlenb,
                 this->memAccessFlags, nullptr, byte_enable);
             if (fault != NoFault) return fault;
         }

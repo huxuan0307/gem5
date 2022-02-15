@@ -75,7 +75,7 @@ def operands {{
     'Fp2': ('FloatReg', 'df', 'FP2 + 8', 'IsFloating', 2),
     'Fp2_bits': ('FloatReg', 'ud', 'FP2 + 8', 'IsFloating', 2),
 
-    'Vd': ('GroupVecReg', 'vc', 'VD', 'IsVector', 1),
+    'Vd':  ('GroupVecReg', 'vc', 'VD', 'IsVector', 1),
     'Vs3': ('GroupVecReg', 'vc', 'VD', 'IsVector', 1),
     'Vs1': ('GroupVecReg', 'vc', 'VS1', 'IsVector', 2),
     'Vs2': ('GroupVecReg', 'vc', 'VS2', 'IsVector', 3),
