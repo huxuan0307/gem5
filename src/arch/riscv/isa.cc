@@ -231,12 +231,7 @@ ISA::copyRegsFrom(ThreadContext *src)
     for (int i = 0; i < NumFloatRegs; ++i)
         tc->setFloatReg(i, src->readFloatReg(i));
 
-    // Third loop through the vector registers.
-    for (int i = 0; i < NumVecRegs; i++) {
-        for (int e = 0; e < NumVecElemPerVecReg; e++) {
-            tc->setVecElemFlat(i, e, src->readVecElemFlat(i, e));
-        }
-    }
+    // TODO: Copy vector regs.
 
     // Lastly copy PC/NPC
     tc->pcState(src->pcState());

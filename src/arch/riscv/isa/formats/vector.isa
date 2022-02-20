@@ -95,10 +95,9 @@ output exec {{
 
     inline uint32_t
     fsgnj32(uint32_t a, uint32_t b, bool n, bool x) {
-        auto b1 = unboxF32(b);
-        if (n) b1 = unboxF32(~b);
-        else if (x) b1 = unboxF32(a) ^ unboxF32(b);
-        return boxF32(insertBits(b1, 30, 0, unboxF32(a)));
+        if (n) b = ~b;
+        else if (x) b = a ^ b;
+        return insertBits(b, 30, 0, a);
     }
 
     inline uint64_t
@@ -354,25 +353,22 @@ def template VFloatExecute {{
                 case 32: {
                     using vi [[maybe_unused]] = int32_t;
                     using vu = uint32_t;
-                    std::function<float32_t(vu)> ftype =
-                        [&](vu v){ return f32(v); };
-                    std::function<float32_t(float32_t)>
-                        fsqrt = f32_sqrt;
-                    std::function<float32_t(float32_t, float32_t)>
+                    [[maybe_unused]] auto ftype = [&](vu v){return f32(v);};
+                    [[maybe_unused]] auto fsqrt = f32_sqrt;
+                    [[maybe_unused]] auto
                         fadd = f32_add,
                         fsub = f32_sub,
                         fmin = f32_min,
                         fmax = f32_max,
                         fdiv = f32_div,
                         fmul = f32_mul;
-                    std::function<float32_t(float32_t, float32_t, float32_t)>
-                        fmadd = f32_mulAdd;
-                    std::function<vu(vu, vu, bool, bool)>
-                        fsgnj = fsgnj32;
+                    [[maybe_unused]] auto fmadd = f32_mulAdd;
+                    [[maybe_unused]] auto fsgnj = fsgnj32;
                     [[maybe_unused]] auto f_to_ui = f32_to_ui32;
                     [[maybe_unused]] auto f_to_i =  f32_to_i32;
                     [[maybe_unused]] auto ui_to_f = ui32_to_f32;
                     [[maybe_unused]] auto i_to_f =  i32_to_f32;
+                    [[maybe_unused]] auto unbox = unboxF32;
 
                     %(op_decl)s; %(op_rd)s;
 
@@ -391,25 +387,22 @@ def template VFloatExecute {{
                 case 64: {
                     using vi [[maybe_unused]] = int64_t;
                     using vu = uint64_t;
-                    std::function<float64_t(vu)> ftype =
-                        [&](vu v){ return f64(v); };
-                    std::function<float64_t(float64_t)>
-                        fsqrt = f64_sqrt;
-                    std::function<float64_t(float64_t, float64_t)>
+                    [[maybe_unused]] auto ftype = [&](vu v){return f64(v);};
+                    [[maybe_unused]] auto fsqrt = f64_sqrt;
+                    [[maybe_unused]] auto
                         fadd = f64_add,
                         fsub = f64_sub,
                         fmin = f64_min,
                         fmax = f64_max,
                         fdiv = f64_div,
                         fmul = f64_mul;
-                    std::function<float64_t(float64_t, float64_t, float64_t)>
-                        fmadd = f64_mulAdd;
-                    std::function<vu(vu, vu, bool, bool)>
-                        fsgnj = fsgnj64;
+                    [[maybe_unused]] auto fmadd = f64_mulAdd;
+                    [[maybe_unused]] auto fsgnj = fsgnj64;
                     [[maybe_unused]] auto f_to_ui = f64_to_ui64;
                     [[maybe_unused]] auto f_to_i =  f64_to_i64;
                     [[maybe_unused]] auto ui_to_f = ui64_to_f64;
                     [[maybe_unused]] auto i_to_f =  i64_to_f64;
+                    [[maybe_unused]] auto unbox = [&](vu v) { return v; };
 
                     %(op_decl)s; %(op_rd)s;
 
@@ -682,13 +675,10 @@ def template VMemLoadExecute {{
             if (ei >= vl) break;
             %(op_decl)s; %(op_rd)s; %(ea_code)s;
 
-            auto offset = vlmax_per_reg * this->sew * greg_idx;
-            auto bytes_to_read = std::min(vlmax_per_reg * this->sew,
-                                          vl * this->sew - offset);
-            const std::vector<bool> byte_enable(bytes_to_read, true);
+            auto offset = TheISA::vlenb * greg_idx;
+            const std::vector<bool> byte_enable(TheISA::vlenb, true);
             fault = readMemAtomic(xc, EA + offset, Mem.as<uint8_t>(),
-                bytes_to_read, this->memAccessFlags, byte_enable);
-
+                TheISA::vlenb, this->memAccessFlags, byte_enable);
             if (fault != NoFault) return fault;
 
             %(memacc_code)s;
@@ -706,14 +696,17 @@ def template VMemLoadInitiateAcc {{
         auto tc = xc->tcBase();
         CHECK_VILL;
 
+        uint64_t vtype = tc->readMiscReg(MISCREG_VTYPE);
+        auto nums = reg_group_nums(vtype);
         Addr EA;
 
         %(op_src_decl)s;
         %(op_rd)s;
         %(ea_code)s;
 
-        return initiateMemRead(xc, traceData, EA, Mem,
-            this->memAccessFlags);
+        const std::vector<bool> byte_enable(sizeof(Mem) * nums, true);
+        return initiateMemRead(xc, EA, sizeof(Mem) * nums,
+            this->memAccessFlags, byte_enable);
     }
 }};
 
@@ -744,11 +737,9 @@ def template VMemLoadCompleteAcc {{
             if (ei >= vl) break;
             %(op_decl)s; %(op_rd)s;
 
-            auto offset = vlmax_per_reg * this->sew * greg_idx;
-            auto bytes_to_read = std::min(vlmax_per_reg * this->sew,
-                                          vl * this->sew - offset);
+            auto offset = TheISA::vlenb * greg_idx;
             memcpy(Mem.as<uint8_t>(), pkt->getPtr<uint8_t>() + offset,
-                   bytes_to_read);
+                   TheISA::vlenb);
             VLOOP({ %(memacc_code)s; });
             %(op_wb)s;
         }
@@ -800,14 +791,20 @@ def template VMemLoadWholeInitiateAcc {{
     Fault %(class_name)s::initiateAcc(ExecContext *xc,
         Trace::InstRecord *traceData) const
     {
+        auto tc = xc->tcBase();
+        CHECK_VILL;
+
+        uint64_t vtype = tc->readMiscReg(MISCREG_VTYPE);
+        auto nums = reg_group_nums(vtype);
         Addr EA;
 
         %(op_src_decl)s;
         %(op_rd)s;
         %(ea_code)s;
 
-        return initiateMemRead(xc, traceData, EA, Mem,
-            this->memAccessFlags);
+        const std::vector<bool> byte_enable(sizeof(Mem) * nums, true);
+        return initiateMemRead(xc, EA, sizeof(Mem) * nums,
+            this->memAccessFlags, byte_enable);
     }
 }};
 
@@ -823,7 +820,6 @@ def template VMemLoadWholeCompleteAcc {{
             auto offset = TheISA::vlenb * greg_idx;
             memcpy(Mem.as<uint8_t>(), pkt->getPtr<uint8_t>() + offset,
                    TheISA::vlenb);
-
             for (size_t i = 0; i < elem_per_reg; i++) {
                 %(memacc_code)s;
             }
@@ -874,14 +870,20 @@ def template VMemLoadMaskInitiateAcc {{
     Fault %(class_name)s::initiateAcc(ExecContext *xc,
         Trace::InstRecord *traceData) const
     {
+        auto tc = xc->tcBase();
+        CHECK_VILL;
+
+        uint64_t vtype = tc->readMiscReg(MISCREG_VTYPE);
+        auto nums = reg_group_nums(vtype);
         Addr EA;
 
         %(op_src_decl)s;
         %(op_rd)s;
         %(ea_code)s;
 
-        return initiateMemRead(xc, traceData, EA, Mem,
-            this->memAccessFlags);
+        const std::vector<bool> byte_enable(sizeof(Mem) * nums, true);
+        return initiateMemRead(xc, EA, sizeof(Mem) * nums,
+            this->memAccessFlags, byte_enable);
     }
 }};
 
@@ -897,7 +899,7 @@ def template VMemLoadMaskCompleteAcc {{
 
         %(op_decl)s; %(op_rd)s;
 
-        memcpy(Mem.as<uint8_t>(), pkt->getPtr<uint8_t>(), bytes_to_read);
+        memcpy(Mem.as<uint8_t>(), pkt->getPtr<uint8_t>(), TheISA::vlenb);
         for (size_t i = 0; i < bytes_to_read; i++) {
             %(memacc_code)s;
         }
@@ -939,21 +941,17 @@ def template VMemStoreExecute {{
             if (ei >= vl) break;
             %(op_decl)s; %(op_rd)s; %(ea_code)s;
 
-            auto offset = vlmax_per_reg * this->sew * greg_idx;
-            auto bytes_to_read = std::min(vlmax_per_reg * this->sew,
-                                          vl * this->sew - offset);
-            const std::vector<bool> byte_enable(bytes_to_read, true);
+            auto offset = TheISA::vlenb * greg_idx;
+            const std::vector<bool> byte_enable(TheISA::vlenb, true);
             fault = readMemAtomic(xc, EA + offset, Mem.as<uint8_t>(),
-                bytes_to_read, this->memAccessFlags, byte_enable);
-
+                TheISA::vlenb, this->memAccessFlags, byte_enable);
             if (fault != NoFault) return fault;
 
             %(memacc_code)s;
             %(op_wb)s;
 
             fault = writeMemAtomic(xc, Mem.as<uint8_t>(), EA + offset,
-                bytes_to_read, this->memAccessFlags, nullptr, byte_enable);
-
+                TheISA::vlenb, this->memAccessFlags, nullptr, byte_enable);
             if (fault != NoFault) return fault;
         }
 
@@ -965,7 +963,40 @@ def template VMemStoreInitiateAcc {{
     Fault %(class_name)s::initiateAcc(ExecContext *xc,
         Trace::InstRecord *traceData) const
     {
-        return execute(xc, traceData);
+        auto tc = xc->tcBase();
+        CHECK_VILL;
+
+        Addr EA;
+        Fault fault = NoFault;
+
+        size_t vl = tc->readMiscReg(MISCREG_VL);
+        uint64_t vtype = tc->readMiscReg(MISCREG_VTYPE);
+
+        const TheISA::vreg_t& tmp_v0 = tc->readVecReg(RegId(VecRegClass, 0));
+        [[maybe_unused]] auto v0 = tmp_v0.as<uint8_t>();
+
+        auto nums = reg_group_nums(vtype);
+        auto vlmax_per_reg = VLMAX(vtype, true);
+        size_t greg_idx = 0, ei = 0;
+        for (; greg_idx < nums; greg_idx++) {
+            if (ei >= vl) break;
+            %(op_decl)s; %(op_rd)s; %(ea_code)s;
+
+            auto offset = TheISA::vlenb * greg_idx;
+            const std::vector<bool> byte_enable(TheISA::vlenb, true);
+            fault = readMemAtomic(xc, EA + offset, Mem.as<uint8_t>(),
+                TheISA::vlenb, this->memAccessFlags, byte_enable);
+            if (fault != NoFault) return fault;
+
+            %(memacc_code)s;
+            %(op_wb)s;
+
+            fault = writeMemTiming(xc, Mem.as<uint8_t>(), EA + offset,
+                TheISA::vlenb, this->memAccessFlags, nullptr, byte_enable);
+            if (fault != NoFault) return fault;
+        }
+
+        return fault;
     }
 }};
 
@@ -997,7 +1028,7 @@ def template VMemStoreWholeExecute {{
         size_t NFIELDS = NF + 1;
         for (size_t greg_idx = 0; greg_idx < NFIELDS; greg_idx++) {
             %(op_decl)s; %(op_rd)s; %(ea_code)s;
-            for (size_t i = 0; i < TheISA::NumVecElemPerVecReg; i++) {
+            for (size_t i = 0; i < TheISA::vlenb; i++) {
                 %(memacc_code)s;
             }
             %(op_wb)s;
@@ -1018,7 +1049,26 @@ def template VMemStoreWholeInitiateAcc {{
     Fault %(class_name)s::initiateAcc(ExecContext *xc,
         Trace::InstRecord *traceData) const
     {
-        return execute(xc, traceData);
+        Fault fault = NoFault;
+        Addr EA;
+
+        size_t NFIELDS = NF + 1;
+        for (size_t greg_idx = 0; greg_idx < NFIELDS; greg_idx++) {
+            %(op_decl)s; %(op_rd)s; %(ea_code)s;
+            for (size_t i = 0; i < TheISA::NumVecElemPerVecReg; i++) {
+                %(memacc_code)s;
+            }
+            %(op_wb)s;
+
+            const std::vector<bool> byte_enable(TheISA::vlenb, true);
+            auto offset = TheISA::vlenb * greg_idx;
+            fault = writeMemTiming(xc, Mem.as<uint8_t>(),
+                EA + offset, TheISA::vlenb,
+                this->memAccessFlags, nullptr, byte_enable);
+            if (fault != NoFault) return fault;
+        }
+
+        return fault;
     }
 }};
 
@@ -1057,8 +1107,8 @@ def template VMemStoreMaskExecute {{
         }
         %(op_wb)s;
 
-        const std::vector<bool> byte_enable(bytes_to_read, true);
-        fault = writeMemAtomic(xc, Mem.as<uint8_t>(), EA, bytes_to_read,
+        const std::vector<bool> byte_enable(TheISA::vlenb, true);
+        fault = writeMemAtomic(xc, Mem.as<uint8_t>(), EA, TheISA::vlenb,
             this->memAccessFlags, nullptr, byte_enable);
         return fault;
     }
@@ -1068,7 +1118,23 @@ def template VMemStoreMaskInitiateAcc {{
     Fault %(class_name)s::initiateAcc(ExecContext *xc,
         Trace::InstRecord *traceData) const
     {
-        return execute(xc, traceData);
+        auto tc = xc->tcBase();
+        Fault fault = NoFault;
+        Addr EA;
+        size_t vl = tc->readMiscReg(MISCREG_VL);
+        auto bytes_to_read = (size_t)ceil((float)vl / 8.0);
+        size_t greg_idx = 0;
+
+        %(op_decl)s; %(op_rd)s; %(ea_code)s;
+        for (size_t i = 0; i < bytes_to_read; i++) {
+            %(memacc_code)s;
+        }
+        %(op_wb)s;
+
+        const std::vector<bool> byte_enable(TheISA::vlenb, true);
+        fault = writeMemTiming(xc, Mem.as<uint8_t>(), EA, TheISA::vlenb,
+            this->memAccessFlags, nullptr, byte_enable);
+        return fault;
     }
 }};
 
