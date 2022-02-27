@@ -1803,9 +1803,41 @@ decode QUADRANT default Unknown::unknown() {
                             Vd_vu[i] = fd.v;
                         });
                     }}, VectorFloatOp);
+                    0x2a: vfmsub_vv({{
+                        VLOOP_IF_MASK ({
+                            auto fd = fmadd(ftype(Vs1_vu[i]),
+                                            ftype(Vs3_vu[i]),
+                                            ftype(Vs2_vu[i] ^ fmask));
+                            Vd_vu[i] = fd.v;
+                        });
+                    }}, VectorFloatOp);
+                    0x2b: vfnmsub_vv({{
+                        VLOOP_IF_MASK ({
+                            auto fd = fmadd(ftype(Vs1_vu[i] ^ fmask),
+                                            ftype(Vs3_vu[i]),
+                                            ftype(Vs2_vu[i]));
+                            Vd_vu[i] = fd.v;
+                        });
+                    }}, VectorFloatOp);
                     0x2c: vfmacc_vv({{
                         VLOOP_IF_MASK ({
                             auto fd = fmadd(ftype(Vs1_vu[i]),
+                                            ftype(Vs2_vu[i]),
+                                            ftype(Vs3_vu[i]));
+                            Vd_vu[i] = fd.v;
+                        });
+                    }}, VectorFloatOp);
+                    0x2e: vfmsac_vv({{
+                        VLOOP_IF_MASK ({
+                            auto fd = fmadd(ftype(Vs1_vu[i]),
+                                            ftype(Vs2_vu[i]),
+                                            ftype(Vs3_vu[i] ^ fmask));
+                            Vd_vu[i] = fd.v;
+                        });
+                    }}, VectorFloatOp);
+                    0x2f: vfnmsac_vv({{
+                        VLOOP_IF_MASK ({
+                            auto fd = fmadd(ftype(Vs1_vu[i] ^ fmask),
                                             ftype(Vs2_vu[i]),
                                             ftype(Vs3_vu[i]));
                             Vd_vu[i] = fd.v;

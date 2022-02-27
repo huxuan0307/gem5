@@ -355,6 +355,7 @@ def template VFloatExecute {{
                     using vu = uint32_t;
                     [[maybe_unused]] auto ftype = [&](vu v){return f32(v);};
                     [[maybe_unused]] auto fsqrt = f32_sqrt;
+                    [[maybe_unused]] auto fmask = mask(31, 31);
                     [[maybe_unused]] auto
                         fadd = f32_add,
                         fsub = f32_sub,
@@ -389,6 +390,7 @@ def template VFloatExecute {{
                     using vu = uint64_t;
                     [[maybe_unused]] auto ftype = [&](vu v){return f64(v);};
                     [[maybe_unused]] auto fsqrt = f64_sqrt;
+                    [[maybe_unused]] auto fmask = mask(63, 63);
                     [[maybe_unused]] auto
                         fadd = f64_add,
                         fsub = f64_sub,
