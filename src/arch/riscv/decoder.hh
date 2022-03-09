@@ -54,6 +54,7 @@ class Decoder : public InstDecoder
 
   protected:
     //The extended machine instruction being generated
+
     ExtMachInst emi;
     uint32_t data;
     uint32_t vl;
