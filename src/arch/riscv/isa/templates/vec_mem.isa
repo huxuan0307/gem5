@@ -126,8 +126,6 @@ def template VleMicroInitiateAcc {{
   %(class_name)s::initiateAcc(ExecContext* xc,
       Trace::InstRecord* traceData) const
   {
-    // Todo: remove
-    size_t greg_idx = 0;
     Addr EA;
     Fault fault = NoFault;
     std::size_t memAccessSize = this->micro_vl * this->sew / 8;
