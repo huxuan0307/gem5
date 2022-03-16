@@ -63,8 +63,6 @@ std::string
 LoadReserved::generateDisassembly(
         Addr pc, const loader::SymbolTable *symtab) const
 {
-    const auto AQ = machInst.aq;
-    const auto RL = machInst.rl;
     std::stringstream ss;
     ss << mnemonic;
     if (machInst.aq || machInst.rl)
@@ -93,8 +91,6 @@ std::string
 StoreCond::generateDisassembly(
         Addr pc, const loader::SymbolTable *symtab) const
 {
-    const auto AQ = machInst.aq;
-    const auto RL = machInst.rl;
     std::stringstream ss;
     ss << mnemonic;
     if (machInst.aq || machInst.rl)
@@ -125,8 +121,6 @@ std::string
 AtomicMemOp::generateDisassembly(
         Addr pc, const loader::SymbolTable *symtab) const
 {
-    const auto AQ = machInst.aq;
-    const auto RL = machInst.rl;
     std::stringstream ss;
     ss << mnemonic;
     if (machInst.aq || machInst.rl)
