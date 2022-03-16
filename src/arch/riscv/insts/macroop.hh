@@ -299,20 +299,17 @@ public:
     using VectorArithMicroInst::generateDisassembly;
 };
 
-class VectorIntMacroOp : public VectorMacroInst
+class VectorIntMacroOp : public VectorArithMacroInst
 {
-protected:
-    bool vm;
 public:
     VectorIntMacroOp(const char* mnem, ExtMachInst _extMachInst,
             OpClass __opClass)
-        : VectorMacroInst(mnem, _extMachInst, __opClass),
-        vm(_extMachInst.vm)
+        : VectorArithMacroInst(mnem, _extMachInst, __opClass)
     {}
-    using VectorMacroInst::generateDisassembly;
+    using VectorArithMacroInst::generateDisassembly;
 };
 
-class VectorIntMicroOp : public VectorMicroInst
+class VectorIntMicroOp : public VectorArithMicroInst
 {
 public:
     uint32_t sew;
@@ -320,15 +317,11 @@ public:
     uint8_t micro_idx;
     VectorIntMicroOp(const char *mnem, ExtMachInst extMachInst,
             OpClass __opClass, uint8_t _micro_vl, uint8_t _micro_idx)
-        : VectorMicroInst(mnem, extMachInst, __opClass),
+        : VectorArithMicroInst(mnem, extMachInst, __opClass),
         sew(vsew2sew(extMachInst.vsew)), micro_vl(_micro_vl),
         micro_idx(_micro_idx)
     {}
-    std::string generateDisassembly(
-            Addr pc, const loader::SymbolTable *symtab) const override
-    {
-        return std::string();
-    }
+    using VectorArithMicroInst::generateDisassembly;
 };
 
 }
