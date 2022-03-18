@@ -1,0 +1,64 @@
+let {{
+  def VLoadStoreBase(name, Name, ea_code, memacc_code, mem_flags,
+      inst_flags, base_class, postacc_code='', decode_template=BasicDecode,
+      exec_template_base=''):
+    # Make sure flags are in lists (convert to lists if not).
+    mem_flags = makeList(mem_flags)
+    inst_flags = makeList(inst_flags)
+    iop = InstObjParams(name, Name, base_class,
+        {'ea_code': ea_code,
+         'memacc_code': memacc_code,
+         'postacc_code': postacc_code },
+        inst_flags)
+    microiop = InstObjParams(name + "_micro",
+        Name + "Micro",
+        exec_template_base + 'MicroInst',
+        {'ea_code': ea_code,
+          'memacc_code': memacc_code,
+          'postacc_code': postacc_code },
+        inst_flags)
+
+    if mem_flags:
+        mem_flags = [ 'Request::%s' % flag for flag in mem_flags ]
+        s = '\n\tmemAccessFlags = ' + '|'.join(mem_flags) + ';'
+        microiop.constructor += s
+
+    # select templates
+
+    constructTemplate = eval(exec_template_base + 'Constructor')
+    microDeclTemplate = eval(exec_template_base + 'Micro' + 'Declare')
+    microExecTemplate = eval(exec_template_base + 'Micro' + 'Execute')
+    microInitTemplate = eval(exec_template_base + 'Micro' + 'InitiateAcc')
+    microCompTemplate = eval(exec_template_base + 'Micro' + 'CompleteAcc')
+
+    # (header_output, decoder_output, decode_block, exec_output)
+    return (VLoadStoreMacroDeclare.subst(iop) +
+        microDeclTemplate.subst(microiop),
+        constructTemplate.subst(iop),
+        decode_template.subst(iop),
+        microExecTemplate.subst(microiop) +
+        microInitTemplate.subst(microiop) +
+        microCompTemplate.subst(microiop))
+}};
+
+def format VleOp(
+  memacc_code,
+  ea_code={{EA = Rs1 + this->offset;}},
+  mem_flags=[],
+  inst_flags=[]
+) {{
+  (header_output, decoder_output, decode_block, exec_output) = \
+    VLoadStoreBase(name, Name, ea_code, memacc_code, mem_flags,
+      inst_flags, 'VleMacroInst', exec_template_base='Vle')
+}};
+
+def format VseOp(
+  memacc_code,
+  ea_code={{EA = Rs1 + this->offset;}},
+  mem_flags=[],
+  inst_flags=[]
+) {{
+  (header_output, decoder_output, decode_block, exec_output) = \
+    VLoadStoreBase(name, Name, ea_code, memacc_code, mem_flags,
+      inst_flags, 'VseMacroInst', exec_template_base='Vse')
+}};

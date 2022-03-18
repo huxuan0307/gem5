@@ -3,7 +3,6 @@
 
 #include <string>
 
-#include "arch/riscv/insts/bitfields.hh"
 #include "arch/riscv/insts/static_inst.hh"
 #include "arch/riscv/regs/misc.hh"
 #include "cpu/exec_context.hh"
@@ -15,6 +14,19 @@ namespace gem5
 namespace RiscvISA
 {
 
+/*
+  *  Spec Section 4.5
+  *  Ref:
+  *  https://github.com/qemu/qemu/blob/c7d773ae/target/riscv/vector_helper.c
+*/
+inline int
+elem_mask(const uint8_t* v0, const int index)
+{
+  int idx = index / 8;
+  int pos = index % 8;
+  return (v0[idx] >> pos) & 1;
+}
+
 /**
  * Base class for arith operations.
  */
@@ -23,9 +35,9 @@ class VArithOp : public RiscvStaticInst
   protected:
     uint64_t vm;
 
-    VArithOp(const char *mnem, MachInst _machInst, OpClass __opClass)
-        : RiscvStaticInst(mnem, _machInst, __opClass),
-          vm(VM)
+    VArithOp(const char *mnem, ExtMachInst _extMachInst, OpClass __opClass)
+        : RiscvStaticInst(mnem, _extMachInst, __opClass),
+          vm(_extMachInst.vm)
     {}
 
     std::string generateDisassembly(
@@ -42,9 +54,10 @@ class VConfOp : public RiscvStaticInst
     uint64_t bit31;
     uint64_t zimm;
     uint64_t uimm;
-    VConfOp(const char *mnem, MachInst _machInst, OpClass __opClass)
-        : RiscvStaticInst(mnem, _machInst, __opClass),
-          bit30(BIT30), bit31(BIT31), zimm(ZIMM), uimm(UIMM)
+    VConfOp(const char *mnem, ExtMachInst _extMachInst, OpClass __opClass)
+        : RiscvStaticInst(mnem, _extMachInst, __opClass),
+          bit30(_extMachInst.bit30), bit31(_extMachInst.bit31),
+          zimm(_extMachInst.zimm_vsetivli), uimm(_extMachInst.uimm_vsetivli)
     {}
 
     std::string generateDisassembly(

@@ -1,0 +1,28 @@
+def format VectorIntFormat(code, *flags) {{
+    iop = InstObjParams(name,
+      Name,
+      'VectorIntMacroOp',
+      {'code': code},
+      flags)
+    microiop = InstObjParams(name + "_micro",
+      Name + "Micro",
+      'VectorIntMicroOp',
+      {'code': code},
+      flags)
+    microiop_mask = InstObjParams(name + "_mask_micro",
+      Name + "MaskMicro",
+      'VectorIntMicroOp',
+      {'code': code},
+      flags)
+    header_output = \
+        VectorIntNoMaskMicroDeclare.subst(microiop) + \
+        VectorIntNoMaskMicroConstructor.subst(microiop) + \
+        VectorIntNoMaskMicroExecute.subst(microiop) + \
+        VectorIntWithMaskMicroDeclare.subst(microiop_mask) + \
+        VectorIntWithMaskMicroConstructor.subst(microiop_mask) + \
+        VectorIntWithMaskMicroExecute.subst(microiop_mask) + \
+        VectorIntMacroDeclare.subst(iop) + \
+        VectorIntMacroConstructor.subst(iop)
+    decode_block = VectorIntDecodeBlock.subst(iop)
+}};
+

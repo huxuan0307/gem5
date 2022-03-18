@@ -42,7 +42,7 @@ decode QUADRANT default Unknown::unknown() {
                   CIMM8<7:6> << 4 |
                   CIMM8<5:2> << 6;
         }}, {{
-            if (machInst == 0)
+            if (machInst.instBits == 0)
                 return std::make_shared<IllegalInstFault>("zero instruction",
                                                            machInst);
             Rp2 = sp + imm;
@@ -422,10 +422,8 @@ decode QUADRANT default Unknown::unknown() {
 
             0x0: decode MOP {
                 0x0: decode LUMOP {
-                    0x00: VMemLoadOp::vle8_v({{
-                        VLOOP_IF_MASK ({
-                            Vd_ub[i] = Mem_vc.as<uint8_t>()[i];
-                        });
+                    0x00: VleOp::vle8_v({{
+                        Vd_ub[i] = Mem_vc.as<uint8_t>()[i];
                     }}, inst_flags=VectorMemLoadOp);
                     0x0b: VMemLoadMaskOp::vlm_v({{
                         Vd_ub[i] = Mem_vc.as<uint8_t>()[i];
@@ -450,10 +448,8 @@ decode QUADRANT default Unknown::unknown() {
             }
             0x5: decode MOP {
                 0x0: decode LUMOP {
-                    0x00: VMemLoadOp::vle16_v({{
-                        VLOOP_IF_MASK ({
-                            Vd_uh[i] = Mem_vc.as<uint16_t>()[i];
-                        });
+                    0x00: VleOp::vle16_v({{
+                        Vd_uh[i] = Mem_vc.as<uint16_t>()[i];
                     }}, inst_flags=VectorMemLoadOp);
                     0x08: decode NF {
                         format VMemLoadWholeOp {
@@ -475,10 +471,8 @@ decode QUADRANT default Unknown::unknown() {
             }
             0x6: decode MOP {
                 0x0: decode LUMOP {
-                    0x00: VMemLoadOp::vle32_v({{
-                        VLOOP_IF_MASK ({
-                            Vd_uw[i] = Mem_vc.as<uint32_t>()[i];
-                        });
+                    0x00: VleOp::vle32_v({{
+                        Vd_uw[i] = Mem_vc.as<uint32_t>()[i];
                     }}, inst_flags=VectorMemLoadOp);
                     0x08: decode NF {
                         format VMemLoadWholeOp {
@@ -500,10 +494,8 @@ decode QUADRANT default Unknown::unknown() {
             }
             0x7: decode MOP {
                 0x0: decode LUMOP {
-                    0x00: VMemLoadOp::vle64_v({{
-                        VLOOP_IF_MASK ({
-                            Vd_ud[i] = Mem_vc.as<uint64_t>()[i];
-                        });
+                    0x00: VleOp::vle64_v({{
+                        Vd_ud[i] = Mem_vc.as<uint64_t>()[i];
                     }}, inst_flags=VectorMemLoadOp);
                     0x08: decode NF {
                         format VMemLoadWholeOp {
@@ -630,10 +622,8 @@ decode QUADRANT default Unknown::unknown() {
 
             0x0: decode MOP {
                 0x0: decode SUMOP {
-                    0x00: VMemStoreOp::vse8_v({{
-                        VLOOP_IF_MASK ({
-                            Mem_vc.as<uint8_t>()[i] = Vs3_ub[i];
-                        });
+                    0x00: VseOp::vse8_v({{
+                        Mem_vc.as<uint8_t>()[i] = Vs3_ub[i];
                     }}, inst_flags=VectorMemStoreOp);
                     0x0b: VMemStoreMaskOp::vsm_v({{
                         Mem_vc.as<uint8_t>()[i] = Vs3_ub[i];
@@ -658,28 +648,22 @@ decode QUADRANT default Unknown::unknown() {
             }
             0x5: decode MOP {
                 0x0: decode SUMOP {
-                    0x00: VMemStoreOp::vse16_v({{
-                        VLOOP_IF_MASK ({
-                            Mem_vc.as<uint16_t>()[i] = Vs3_uh[i];
-                        });
+                    0x00: VseOp::vse16_v({{
+                        Mem_vc.as<uint16_t>()[i] = Vs3_uh[i];
                     }}, inst_flags=VectorMemStoreOp);
                 }
             }
             0x6: decode MOP {
                 0x0: decode SUMOP {
-                    0x00: VMemStoreOp::vse32_v({{
-                        VLOOP_IF_MASK ({
-                            Mem_vc.as<uint32_t>()[i] = Vs3_uw[i];
-                        });
+                    0x00: VseOp::vse32_v({{
+                        Mem_vc.as<uint32_t>()[i] = Vs3_uw[i];
                     }}, inst_flags=VectorMemStoreOp);
                 }
             }
             0x7: decode MOP {
                 0x0: decode SUMOP {
-                    0x00: VMemStoreOp::vse64_v({{
-                        VLOOP_IF_MASK ({
-                            Mem_vc.as<uint64_t>()[i] = Vs3_ud[i];
-                        });
+                    0x00: VseOp::vse64_v({{
+                        Mem_vc.as<uint64_t>()[i] = Vs3_ud[i];
                     }}, inst_flags=VectorMemStoreOp);
                 }
             }
@@ -1450,14 +1434,15 @@ decode QUADRANT default Unknown::unknown() {
         }
 
         0x15: decode FUNCT3 {
-            format VIntOp {
+            0x0: decode VFUNCT6 {
                 // OPIVV
-                0x0: decode VFUNCT6 {
+                format VectorIntFormat {
                     0x0: vadd_vv({{
-                        VLOOP_IF_MASK ({
-                            Vd_vi[i] = Vs2_vi[i] + Vs1_vi[i];
-                        });
+                        Vd_vi[i] = Vs2_vi[i] + Vs1_vi[i];
                     }}, VectorIntOp);
+                }
+                format VIntOp {
+
                     0x2: vsub_vv({{
                         VLOOP_IF_MASK ({
                             Vd_vi[i] = Vs2_vi[i] - Vs1_vi[i];

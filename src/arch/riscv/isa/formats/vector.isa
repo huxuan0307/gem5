@@ -1,5 +1,5 @@
+
 output exec {{
-    #define XLEN sizeof(RegVal) * 8
 
     inline uint64_t
     sew_mask(const uint64_t vtype)
@@ -46,19 +46,6 @@ output exec {{
     {
         int64_t lmul = (int64_t)sext<3>(bits(vtype, 2, 0));
         return 1 << std::max<int64_t>(0, lmul);
-    }
-
-    /*
-     *  Spec Section 4.5
-     *  Ref:
-     *  https://github.com/qemu/qemu/blob/c7d773ae/target/riscv/vector_helper.c
-    */
-    inline int
-    elem_mask(const uint8_t* v0, const int index)
-    {
-        int idx = index / 8;
-        int pos = index % 8;
-        return (v0[idx] >> pos) & 1;
     }
 
     inline void
@@ -156,6 +143,8 @@ def template VConfExecute {{
         tc->setMiscReg(MISCREG_VL, vl);
         tc->setMiscReg(MISCREG_VTYPE, vtype);
         tc->setMiscReg(MISCREG_VSTART, 0);
+        tc->getDecoderPtr()->as<Decoder>().setVl(vl);
+        tc->getDecoderPtr()->as<Decoder>().setVtype(vtype);
         %(op_wb)s;
         return NoFault;
     }
@@ -231,14 +220,14 @@ def template VArithMaskDeclare {{
         RegId destRegIdxArr[1];
 
       public:
-        %(class_name)s(MachInst machInst);
+        %(class_name)s(ExtMachInst machInst);
         Fault execute(ExecContext *, Trace::InstRecord *) const override;
         using %(base_class)s::generateDisassembly;
     };
 }};
 
 def template VArithMaskConstructor {{
-    %(class_name)s::%(class_name)s(MachInst machInst):
+    %(class_name)s::%(class_name)s(ExtMachInst machInst):
         %(base_class)s("%(mnemonic)s", machInst, %(op_class)s)
     {
         %(set_reg_idx_arr)s;
@@ -334,7 +323,8 @@ def template VFloatExecute {{
 
         STATUS status = xc->readMiscReg(MISCREG_STATUS);
         if (status.fs == FPUStatus::OFF)
-            return std::make_shared<IllegalInstFault>("VFPU is off", machInst);
+            return std::make_shared<IllegalInstFault>("VFPU is off",
+                                                        machInst);
 
         VRM_REQUIRED;
 
@@ -450,7 +440,8 @@ def template VFloatMaskExecute {{
 
         STATUS status = xc->readMiscReg(MISCREG_STATUS);
         if (status.fs == FPUStatus::OFF)
-            return std::make_shared<IllegalInstFault>("VFPU is off", machInst);
+            return std::make_shared<IllegalInstFault>("VFPU is off",
+                                                        machInst);
 
         VRM_REQUIRED;
 
@@ -571,7 +562,7 @@ def template VMvWholeDeclare {{
         %(reg_idx_arr_decl)s;
 
       public:
-        %(class_name)s(MachInst machInst);
+        %(class_name)s(ExtMachInst extMachInst);
         Fault execute(ExecContext *, Trace::InstRecord *) const override;
         std::string generateDisassembly(
             Addr pc, const loader::SymbolTable *symtab) const override;
@@ -590,7 +581,7 @@ def template VMemLoadStoreOpDeclare {{
 
       public:
         /// Constructor.
-        %(class_name)s(ExtMachInst machInst);
+        %(class_name)s(ExtMachInst extMachInst);
 
         Fault execute(ExecContext *, Trace::InstRecord *) const override;
         Fault initiateAcc(ExecContext *, Trace::InstRecord *) const override;
@@ -600,9 +591,9 @@ def template VMemLoadStoreOpDeclare {{
 }};
 
 def template VMemLoadStoreOpConstructor {{
-    %(class_name)s::%(class_name)s(ExtMachInst machInst):
-        %(base_class)s("%(mnemonic)s", machInst, %(op_class)s,
-        (MEW<<3)|WIDTH, VM)
+    %(class_name)s::%(class_name)s(ExtMachInst extMachInst):
+        %(base_class)s("%(mnemonic)s", extMachInst, %(op_class)s,
+        (extMachInst.mew<<3)|extMachInst.width, extMachInst.vm)
     {
         %(set_reg_idx_arr)s;
         %(constructor)s;

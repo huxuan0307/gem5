@@ -130,7 +130,7 @@ def bitfield VFUNCT5    <31:27>;
 def bitfield VFUNCT3    <27:25>;
 def bitfield VFUNCT2    <26:25>;
 
-def bitfield VS3        <31:27>;
+def bitfield VS3        <11:7>;
 def bitfield VS2        <24:20>;
 def bitfield VS1        <19:15>;
 def bitfield VD         <11:7>;
@@ -146,3 +146,6 @@ def bitfield WIDTH      <14:12>;
 def bitfield SIMM_3     <17:15>;
 def bitfield BIT31      <31>;
 def bitfield BIT30      <30>;
+def bitfield ZIMM       <30:20>;
+def bitfield UIMM       <19:15>;
+def bitfield VECIMM     <19:15>;
