@@ -89,7 +89,7 @@ VldMvMicroInst::execute(ExecContext *xc,
     auto Vd = tmp_d0.as<uint8_t>();
 
     constexpr auto offset = cache_line_size / 8;
-    for (int i = 0; i < NumVecMemInternalRegs; i++) {
+    for (int i = 0; i < this->src_num; i++) {
         RiscvISA::vreg_t tmp_s = xc->readVecRegOperand(this, i);
         auto s = tmp_s.as<uint8_t>();
         memcpy(Vd + i * offset, s, offset);
@@ -118,7 +118,7 @@ VstMvMicroInst::execute(ExecContext *xc,
     auto Vs = tmp_s0.as<uint8_t>();
 
     constexpr auto offset = cache_line_size / 8;
-    for (int i = 0; i < NumVecMemInternalRegs; i++) {
+    for (int i = 0; i < this->dst_num; i++) {
         RiscvISA::vreg_t tmp_d = xc->getWritableVecRegOperand(this, i);
         auto d = tmp_d.as<uint8_t>();
         memcpy(d, Vs + i * offset, offset);

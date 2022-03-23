@@ -196,11 +196,12 @@ class VldMvMicroInst : public VectorArithMicroInst
 private:
     RegId srcRegIdxArr[NumVecMemInternalRegs];
     RegId destRegIdxArr[1];
-
+    uint8_t src_num;
 public:
-    VldMvMicroInst(ExtMachInst extMachInst, uint8_t _dst_reg)
+    VldMvMicroInst(ExtMachInst extMachInst, uint8_t _dst_reg, uint8_t _src_num)
         : VectorArithMicroInst("vl_mv_micro", extMachInst, VectorMemLoadOp)
     {
+        src_num = _src_num;
         setRegIdxArrays(
             reinterpret_cast<RegIdArrayPtr>(
                 &std::remove_pointer_t<decltype(this)>::srcRegIdxArr),
@@ -218,10 +219,10 @@ public:
 
         setDestRegIdx(_numDestRegs++, RegId(VecRegClass, _dst_reg));
         _numVecDestRegs++;
-        setSrcRegIdx(_numSrcRegs++, RegId(VecRegClass, VecMemInternalReg0));
-        setSrcRegIdx(_numSrcRegs++, RegId(VecRegClass, VecMemInternalReg0+1));
-        setSrcRegIdx(_numSrcRegs++, RegId(VecRegClass, VecMemInternalReg0+2));
-        setSrcRegIdx(_numSrcRegs++, RegId(VecRegClass, VecMemInternalReg0+3));
+        for (uint8_t i=0; i<_src_num; i++) {
+            setSrcRegIdx(_numSrcRegs++,
+                        RegId(VecRegClass, VecMemInternalReg0 + i));
+        }
         this->flags[IsVector] = true;
     }
     Fault execute(ExecContext *, Trace::InstRecord *) const override;
@@ -234,11 +235,12 @@ class VstMvMicroInst : public VectorArithMicroInst
 private:
     RegId srcRegIdxArr[1];
     RegId destRegIdxArr[NumVecMemInternalRegs];
-
+    uint8_t dst_num;
 public:
-    VstMvMicroInst(ExtMachInst extMachInst, uint8_t _src_reg)
+    VstMvMicroInst(ExtMachInst extMachInst, uint8_t _src_reg, uint8_t _dst_num)
         : VectorArithMicroInst("vs_mv_micro", extMachInst, VectorMemStoreOp)
     {
+        dst_num = _dst_num;
         setRegIdxArrays(
             reinterpret_cast<RegIdArrayPtr>(
                 &std::remove_pointer_t<decltype(this)>::srcRegIdxArr),
@@ -254,18 +256,11 @@ public:
         _numIntDestRegs = 0;
         _numCCDestRegs = 0;
 
-        setDestRegIdx(_numDestRegs++,
-                        RegId(VecRegClass, VecMemInternalReg0));
-        _numVecDestRegs++;
-        setDestRegIdx(_numDestRegs++,
-                        RegId(VecRegClass, VecMemInternalReg0 + 1));
-        _numVecDestRegs++;
-        setDestRegIdx(_numDestRegs++,
-                        RegId(VecRegClass, VecMemInternalReg0 + 2));
-        _numVecDestRegs++;
-        setDestRegIdx(_numDestRegs++,
-                        RegId(VecRegClass, VecMemInternalReg0 + 3));
-        _numVecDestRegs++;
+        for (uint8_t i=0; i<_dst_num; i++) {
+            setDestRegIdx(_numDestRegs++,
+                        RegId(VecRegClass, VecMemInternalReg0 + i));
+            _numVecDestRegs++;
+        }
         setSrcRegIdx(_numSrcRegs++, RegId(VecRegClass, _src_reg));
         this->flags[IsVector] = true;
     }

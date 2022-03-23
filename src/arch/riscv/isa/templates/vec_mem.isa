@@ -27,6 +27,7 @@ def template VleConstructor {{
     uint32_t offset;
 
     for (VecRegIdx i=0; micro_vl>0; ++i) {
+      int regCnt = 0;
       for (int j=0; j<numMaPerVReg && micro_vl>0; ++j) {
         offset = (i * numMaPerVReg + j) * cache_line_size / 8;
         micro_op = new %(class_name)sMicro(extMachInst, offset,
@@ -35,8 +36,9 @@ def template VleConstructor {{
         micro_op->setFlag(IsLoad);
         this->microops.push_back(micro_op);
         micro_vl = std::min(left_vl -= elemNumPerMa, elemNumPerMa);
+        regCnt++;
       }
-      micro_op = new VldMvMicroInst(extMachInst, extMachInst.vd + i);
+      micro_op = new VldMvMicroInst(extMachInst, extMachInst.vd + i, regCnt);
       this->microops.push_back(micro_op);
     }
     this->microops.front()->setFlag(IsFirstMicroop);
@@ -190,19 +192,26 @@ def template VseConstructor {{
     int32_t micro_vl = std::min(left_vl, elemNumPerMa);
 
     StaticInstPtr micro_op;
+    std::vector<StaticInstPtr> tmp_ops;
     uint32_t offset;
     for (VecRegIdx i=0; micro_vl>0; ++i) {
-      micro_op = new VstMvMicroInst(extMachInst, extMachInst.vs3 + i);
-      this->microops.push_back(micro_op);
+      int regCnt = 0;
       for (int j=0; j<numMaPerVReg && micro_vl>0; ++j) {
         offset = (i * numMaPerVReg + j) * cache_line_size / 8;
         micro_op = new %(class_name)sMicro(extMachInst, offset,
                 VecMemInternalReg0 + j, micro_vl);
         micro_op->setFlag(IsDelayedCommit);
         micro_op->setFlag(IsStore);
-        this->microops.push_back(micro_op);
+        tmp_ops.push_back(micro_op);
         micro_vl = std::min(left_vl -= elemNumPerMa, elemNumPerMa);
+        regCnt++;
       }
+      micro_op = new VstMvMicroInst(extMachInst, extMachInst.vs3 + i, regCnt);
+      this->microops.push_back(micro_op);
+      for (StaticInstPtr op : tmp_ops) {
+        this->microops.push_back(op);
+      }
+      tmp_ops.clear();
     }
     this->microops.front()->setFlag(IsFirstMicroop);
     this->microops.back()->setFlag(IsLastMicroop);
