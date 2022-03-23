@@ -40,10 +40,18 @@ namespace RiscvISA
 
 GenericISA::BasicDecodeCache<Decoder, ExtMachInst> Decoder::defaultCache;
 
+bool isVConfig(ExtMachInst extMachInst)
+{
+    uint64_t opcode = bits(extMachInst, 6, 0);
+    uint64_t width = extMachInst.width;
+    return opcode == 0b1010111u && width == 0b111u;
+}
+
 void Decoder::reset()
 {
     aligned = true;
     mid = false;
+    vConfigDone = true;
     data = 0;
     emi = 0;
 }
@@ -51,6 +59,14 @@ void Decoder::reset()
 void
 Decoder::moreBytes(const PCStateBase &pc, Addr fetchPC)
 {
+    if (GEM5_UNLIKELY(!this->vConfigDone)) {
+        DPRINTF(Decode, "Wait VConfig inst execute ...\n");
+        instDone = false;
+        outOfBytes = false; // stop update pc
+        stall = true; // stop fetch
+        return;
+    }
+    stall = false;
     // The MSB of the upper and lower halves of a machine instruction.
     constexpr size_t max_bit = 31;
     constexpr size_t mid_bit = 15;
@@ -85,9 +101,13 @@ Decoder::moreBytes(const PCStateBase &pc, Addr fetchPC)
         emi.vtype   = this->vtype;
         emi.vill    = this->vill;
         emi.compressed = compressed(emi);
+        if (isVConfig(emi)) {
+            this->vConfigDone = false; // set true when vconfig inst execute
+        }
         DPRINTF(Decode, "inst:0x%08x, vtype:0x%x, vill:%d, vl:%d, "
-            "compressed:%01x\n",
-            emi.instBits, emi.vtype, emi.vill, emi.vl, emi.compressed);
+            "compressed:%01x, vConfDone:%d\n",
+            emi.instBits, emi.vtype, emi.vill, emi.vl, emi.compressed,
+            this->vConfigDone);
     }
 }
 
@@ -140,6 +160,12 @@ Decoder::setVtype(uint64_t new_vtype)
     else {
         this->vtype = bits(new_vtype, 7, 0);
     }
+}
+
+void
+Decoder::setVConfigDone()
+{
+    this->vConfigDone = true;
 }
 
 } // namespace RiscvISA

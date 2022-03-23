@@ -51,7 +51,7 @@ class Decoder : public InstDecoder
   private:
     bool aligned;
     bool mid;
-
+    bool vConfigDone;
   protected:
     //The extended machine instruction being generated
     ExtMachInst emi;
@@ -90,6 +90,8 @@ class Decoder : public InstDecoder
     void setVl(uint32_t new_vl);
 
     void setVtype(uint64_t new_vtype);
+
+    void setVConfigDone();
 };
 
 } // namespace RiscvISA
