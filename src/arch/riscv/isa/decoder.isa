@@ -1438,54 +1438,38 @@ decode QUADRANT default Unknown::unknown() {
                 // OPIVV
                 format VectorIntFormat {
                     0x0: vadd_vv({{
-                        Vd_vi[i] = Vs2_vi[i] + Vs1_vi[i];
+                        Vd_vu[i] = Vs2_vu[i] + Vs1_vu[i];
+                    }}, VectorIntOp);
+                    0x2: vsub_vv({{
+                        Vd_vu[i] = Vs2_vu[i] - Vs1_vu[i];
+                    }}, VectorIntOp);
+                    0x4: vminu_vv({{
+                        Vd_vu[i] = Vs2_vu[i] < Vs1_vu[i] ?
+                                Vs2_vu[i] : Vs1_vu[i];
+                    }}, VectorIntOp);
+                    0x5: vmin_vv({{
+                        Vd_vi[i] = Vs2_vi[i] < Vs1_vi[i] ?
+                                Vs2_vi[i] : Vs1_vi[i];
+                    }}, VectorIntOp);
+                    0x6: vmaxu_vv({{
+                        Vd_vu[i] = Vs2_vu[i] > Vs1_vu[i] ?
+                                Vs2_vu[i] : Vs1_vu[i];
+                    }}, VectorIntOp);
+                    0x7: vmax_vv({{
+                        Vd_vi[i] = Vs2_vi[i] > Vs1_vi[i] ?
+                                Vs2_vi[i] : Vs1_vi[i];
+                    }}, VectorIntOp);
+                    0x9: vand_vv({{
+                        Vd_vu[i] = Vs2_vu[i] & Vs1_vu[i];
+                    }}, VectorIntOp);
+                    0xa: vor_vv({{
+                        Vd_vu[i] = Vs2_vu[i] | Vs1_vu[i];
+                    }}, VectorIntOp);
+                    0xb: vxor_vv({{
+                        Vd_vu[i] = Vs2_vu[i] ^ Vs1_vu[i];
                     }}, VectorIntOp);
                 }
                 format VIntOp {
-                    0x2: vsub_vv({{
-                        VLOOP_IF_MASK ({
-                            Vd_vi[i] = Vs2_vi[i] - Vs1_vi[i];
-                        });
-                    }}, VectorIntOp);
-                    0x4: vminu_vv({{
-                        VLOOP_IF_MASK ({
-                            Vd_vu[i] = Vs2_vu[i] < Vs1_vu[i] ?
-                                Vs2_vu[i] : Vs1_vu[i];
-                        });
-                    }}, VectorIntOp);
-                    0x5: vmin_vv({{
-                        VLOOP_IF_MASK ({
-                            Vd_vi[i] = Vs2_vi[i] < Vs1_vi[i] ?
-                                Vs2_vi[i] : Vs1_vi[i];
-                        });
-                    }}, VectorIntOp);
-                    0x6: vmaxu_vv({{
-                        VLOOP_IF_MASK ({
-                            Vd_vu[i] = Vs2_vu[i] > Vs1_vu[i] ?
-                                Vs2_vu[i] : Vs1_vu[i];
-                        });
-                    }}, VectorIntOp);
-                    0x7: vmax_vv({{
-                        VLOOP_IF_MASK ({
-                            Vd_vi[i] = Vs2_vi[i] > Vs1_vi[i] ?
-                                Vs2_vi[i] : Vs1_vi[i];
-                        });
-                    }}, VectorIntOp);
-                    0x9: vand_vv({{
-                        VLOOP_IF_MASK ({
-                            Vd_vi[i] = Vs2_vi[i] & Vs1_vi[i];
-                        });
-                    }}, VectorIntOp);
-                    0xa: vor_vv({{
-                        VLOOP_IF_MASK ({
-                            Vd_vi[i] = Vs2_vi[i] | Vs1_vi[i];
-                        });
-                    }}, VectorIntOp);
-                    0xb: vxor_vv({{
-                        VLOOP_IF_MASK ({
-                            Vd_vi[i] = Vs2_vi[i] ^ Vs1_vi[i];
-                        });
-                    }}, VectorIntOp);
                     0xc: vrgather_vv({{
                         auto vlmax = VLMAX(vtype);
                         VLOOP_IF_MASK ({

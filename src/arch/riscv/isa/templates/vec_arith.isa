@@ -85,7 +85,8 @@ def template VectorIntMicroExecute {{
   %(class_name)s<ElemType>::execute(ExecContext* xc,
                                     Trace::InstRecord* traceData) const
   {
-    using vi = ElemType;
+    using vu [[maybe_unused]] = std::make_unsigned_t<ElemType>;
+    using vi [[maybe_unused]] = std::make_signed_t<ElemType>;
     if (machInst.vill)
       return std::make_shared<IllegalInstFault>("VILL is set", machInst);
 
