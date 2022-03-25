@@ -91,6 +91,8 @@ protected:
     int8_t ilmul() const { return (int8_t)sext<3>(this->vlmul()); }
 
     uint32_t vlmax() const { return RiscvISA::VLEN >> (vsew() + 3 - ilmul()); }
+
+    uint64_t sew_mask() const { return (1 << (3 + vsew())) - 1; }
 };
 
 class VectorArithMicroInst : public VectorMicroInst
@@ -154,7 +156,7 @@ protected:
         _sew(width2sew(_extMachInst.width)) // sew set by mem inst not vconfig
     {}
 
-    uint32_t numElemPerMemAcc() {
+    virtual uint32_t numElemPerMemAcc() {
         return cache_line_size / this->_sew;
     }
 

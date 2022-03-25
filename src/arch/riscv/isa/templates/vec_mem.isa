@@ -333,3 +333,80 @@ def template VseMicroCompleteAcc {{
     return NoFault;
   }
 }};
+
+def template VlmConstructor {{
+  %(class_name)s::%(class_name)s(ExtMachInst extMachInst)
+      : %(base_class)s("%(mnemonic)s", extMachInst, VectorMemLoadOp)
+  {
+    %(set_reg_idx_arr)s;
+    %(constructor)s;
+    // num of mem acc operations in one Vec reg
+    uint32_t numMaPerVReg = this->numMemAccPerVReg();
+    // num of elem in one mem acc operation
+    int32_t elemNumPerMa = this->numElemPerMemAcc() * 8;
+    flags[IsVector] = true;
+    int32_t left_vl = this->vl;
+    int32_t micro_vl = std::min(left_vl, elemNumPerMa);
+    StaticInstPtr micro_op;
+    uint32_t offset;
+
+    for (VecRegIdx i=0; micro_vl>0; ++i) {
+      int regCnt = 0;
+      for (int j=0; j<numMaPerVReg && micro_vl>0; ++j) {
+        offset = (i * numMaPerVReg + j) * cache_line_size / 8;
+        micro_op = new Vle8_vMicro(extMachInst, offset,
+                VecMemInternalReg0 + j, (micro_vl + 7) / 8);
+        micro_op->setFlag(IsDelayedCommit);
+        micro_op->setFlag(IsLoad);
+        this->microops.push_back(micro_op);
+        micro_vl = std::min(left_vl -= elemNumPerMa, elemNumPerMa);
+        regCnt++;
+      }
+      micro_op = new VldMvMicroInst(extMachInst, extMachInst.vd + i, regCnt);
+      this->microops.push_back(micro_op);
+    }
+    this->microops.front()->setFlag(IsFirstMicroop);
+    this->microops.back()->setFlag(IsLastMicroop);
+  }
+}};
+
+def template VsmConstructor {{
+  %(class_name)s::%(class_name)s(ExtMachInst extMachInst)
+    : %(base_class)s("%(mnemonic)s", extMachInst, VectorMemStoreOp)
+  {
+    %(set_reg_idx_arr)s;
+    %(constructor)s;
+    // num of mem acc operations in one Vec reg
+    uint32_t numMaPerVReg = this->numMemAccPerVReg();
+    // num of elem in one mem acc operation
+    int32_t elemNumPerMa = this->numElemPerMemAcc() * 8;
+    flags[IsVector] = true;
+    int32_t left_vl = this->vl;
+    int32_t micro_vl = std::min(left_vl, elemNumPerMa);
+
+    StaticInstPtr micro_op;
+    std::vector<StaticInstPtr> tmp_ops;
+    uint32_t offset;
+    for (VecRegIdx i=0; micro_vl>0; ++i) {
+      int regCnt = 0;
+      for (int j=0; j<numMaPerVReg && micro_vl>0; ++j) {
+        offset = (i * numMaPerVReg + j) * cache_line_size / 8;
+        micro_op = new Vse8_vMicro(extMachInst, offset,
+                VecMemInternalReg0 + j, (micro_vl + 7) / 8);
+        micro_op->setFlag(IsDelayedCommit);
+        micro_op->setFlag(IsStore);
+        tmp_ops.push_back(micro_op);
+        micro_vl = std::min(left_vl -= elemNumPerMa, elemNumPerMa);
+        regCnt++;
+      }
+      micro_op = new VstMvMicroInst(extMachInst, extMachInst.vs3 + i, regCnt);
+      this->microops.push_back(micro_op);
+      for (StaticInstPtr op : tmp_ops) {
+        this->microops.push_back(op);
+      }
+      tmp_ops.clear();
+    }
+    this->microops.front()->setFlag(IsFirstMicroop);
+    this->microops.back()->setFlag(IsLastMicroop);
+  }
+}};
