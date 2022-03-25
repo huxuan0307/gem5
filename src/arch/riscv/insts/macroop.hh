@@ -21,7 +21,7 @@ namespace RiscvISA
 
 static constexpr uint32_t cache_line_size = 64;
 
-static uint32_t width2sew(uint64_t width) {
+static inline uint32_t width2sew(uint64_t width) {
     switch (bits(width, 2, 0)) {
         case 0b000: return 8;
         case 0b101: return 16;
@@ -31,87 +31,131 @@ static uint32_t width2sew(uint64_t width) {
     }
 }
 
-static uint64_t get_sew(const uint8_t vtype) {
+static inline uint8_t checked_vtype(bool vill, uint8_t vtype) {
+    panic_if(vill, "vill has been set");
     const uint8_t vsew = bits(vtype, 5, 3);
-    switch (bits(vsew, 2, 0)) {
-        case 0b000 ... 0b011: return 8<<vsew;
-        default: panic("vsew: %x not supported", vsew);
-    }
-}
-
-static int8_t get_ilmul(const uint8_t vtype) {
+    panic_if(vsew >= 0b100, "vsew: %#x not supported", vsew);
     const uint8_t vlmul = bits(vtype, 2, 0);
-    int8_t res = (int8_t)sext<3>(vlmul);
-    if (GEM5_LIKELY(res != -4))
-        return res;
-    else
-        panic("vlmul: %x not supported", vlmul);
+    panic_if(vlmul == 0b100, "vlmul: %#x not supported", vlmul);
+    return vtype;
 }
 
-class VectorArithMicroInst : public RiscvMicroInst
-{
-protected:
-    VectorArithMicroInst(const char *mnem, ExtMachInst extMachInst,
-            OpClass __opClass)
-        : RiscvMicroInst(mnem, extMachInst, __opClass)
-    {
-        this->flags[IsVector] = true;
-    }
-    std::string generateDisassembly(
-            Addr pc, const loader::SymbolTable *symtab) const override;
-};
-
-class VectorArithMacroInst : public RiscvMacroInst
+class VectorMacroInst : public RiscvMacroInst
 {
 protected:
     uint32_t vl;
-    uint32_t sew;
-    int8_t ilmul;
+    uint8_t vtype;
     bool vm;
-    VectorArithMacroInst(const char* mnem, ExtMachInst _extMachInst,
+    VectorMacroInst(const char* mnem, ExtMachInst _extMachInst,
                    OpClass __opClass)
         : RiscvMacroInst(mnem, _extMachInst, __opClass),
-        vl(_extMachInst.vl), sew(get_sew(_extMachInst.vtype)),
-        ilmul(get_ilmul(_extMachInst.vtype)),
+        vl(_extMachInst.vl),
+        vtype(checked_vtype(_extMachInst.vill, _extMachInst.vtype)),
         vm(_extMachInst.vm)
     {
         this->flags[IsVector] = true;
     }
 
-    std::string generateDisassembly(
-            Addr pc, const loader::SymbolTable *symtab) const override;
+    uint8_t vsew() const { return bits(this->vtype, 5, 3); }
 
-    uint32_t numMicroOp() {
-        switch (this->ilmul) {
-            case -3 ... -1:
-                return 1;
-            case 0 ... 3:
-                return 1 << this->ilmul;
-            default:
-                panic("vlmul: %x not supported", this->machInst.vtype.vlmul);
-        }
-        return 0;
-    }
+    uint8_t vlmul() const { return bits(this->vtype, 2, 0); }
+
+    virtual uint32_t sew() const = 0;
+
+    int8_t ilmul() const { return (int8_t)sext<3>(this->vlmul()); }
+
+    uint32_t vlmax() const { return RiscvISA::VLEN >> (vsew() + 3 - ilmul()); }
 };
 
-class VectorMemMacroInst : public RiscvMacroInst
+class VectorMicroInst : public RiscvMicroInst
 {
 protected:
-    uint32_t vl;
-    uint32_t sew;
-    int8_t ilmul; // -3->1/8, ..., 0->1, ..., 3->8
-    VectorMemMacroInst(const char* mnem, ExtMachInst _extMachInst,
-                   OpClass __opClass)
-        : RiscvMacroInst(mnem, _extMachInst, __opClass),
-        vl(_extMachInst.vl),
-        sew(width2sew(_extMachInst.width)), // sew set by mem inst not vconfig
-        ilmul(get_ilmul(_extMachInst.vtype))
+    bool vm;
+    uint8_t micro_vl;
+    uint8_t vtype;
+    VectorMicroInst(const char *mnem, ExtMachInst extMachInst,
+            OpClass __opClass, uint8_t _micro_vl)
+        : RiscvMicroInst(mnem, extMachInst, __opClass),
+        vm(extMachInst.vm), micro_vl(_micro_vl),
+        vtype(extMachInst.vtype) // has been checked by vector macro inst
     {
         this->flags[IsVector] = true;
     }
 
+    uint8_t vsew() const { return bits(this->vtype, 5, 3); }
+
+    uint8_t vlmul() const { return bits(this->vtype, 2, 0); }
+
+    virtual uint32_t sew() const = 0;
+
+    int8_t ilmul() const { return (int8_t)sext<3>(this->vlmul()); }
+
+    uint32_t vlmax() const { return RiscvISA::VLEN >> (vsew() + 3 - ilmul()); }
+};
+
+class VectorArithMicroInst : public VectorMicroInst
+{
+protected:
+    VectorArithMicroInst(const char *mnem, ExtMachInst extMachInst,
+            OpClass __opClass, uint8_t _micro_vl)
+        : VectorMicroInst(mnem, extMachInst, __opClass, _micro_vl)
+    {}
+
+    std::string generateDisassembly(
+            Addr pc, const loader::SymbolTable *symtab) const override;
+
+    uint32_t sew() const override { return 8 << this->vsew(); }
+
+    uint32_t numMicroOp() const {
+        return 1 << std::max<int8_t>(0, this->ilmul());
+    }
+};
+
+class VectorArithMacroInst : public VectorMacroInst
+{
+protected:
+    VectorArithMacroInst(const char* mnem, ExtMachInst _extMachInst,
+                   OpClass __opClass)
+        : VectorMacroInst(mnem, _extMachInst, __opClass)
+    {
+        this->flags[IsVector] = true;
+    }
+
+    std::string generateDisassembly(
+            Addr pc, const loader::SymbolTable *symtab) const override;
+
+    uint32_t sew() const override { return 8 << this->vsew(); }
+
+    uint32_t numMicroOp() const {
+        return 1 << std::max<int8_t>(0, this->ilmul());
+    }
+};
+
+class VectorMemMicroInst : public VectorMicroInst
+{
+    uint32_t _sew;
+protected:
+    VectorMemMicroInst(const char* mnem, ExtMachInst _extMachInst,
+                   OpClass __opClass, uint8_t _micro_vl)
+        : VectorMicroInst(mnem, _extMachInst, __opClass, _micro_vl),
+        _sew(width2sew(_extMachInst.width))
+    {}
+
+    uint32_t sew() const override { return _sew; }
+};
+
+class VectorMemMacroInst : public VectorMacroInst
+{
+    uint32_t _sew;
+protected:
+    VectorMemMacroInst(const char* mnem, ExtMachInst _extMachInst,
+                   OpClass __opClass)
+        : VectorMacroInst(mnem, _extMachInst, __opClass),
+        _sew(width2sew(_extMachInst.width)) // sew set by mem inst not vconfig
+    {}
+
     uint32_t numElemPerMemAcc() {
-        return cache_line_size / this->sew;
+        return cache_line_size / this->_sew;
     }
 
     uint32_t numMemAcc() {
@@ -122,6 +166,8 @@ protected:
     constexpr uint32_t numMemAccPerVReg() {
         return RiscvISA::VLEN / cache_line_size;
     }
+
+    uint32_t sew() const override { return _sew; }
 };
 
 class VleMacroInst : public VectorMemMacroInst
@@ -148,45 +194,40 @@ protected:
             Addr pc, const loader::SymbolTable *symtab) const override;
 };
 
-class VleMicroInst : public RiscvMicroInst
+class VleMicroInst : public VectorMemMicroInst
 {
 protected:
-    uint32_t sew;
     uint32_t offset; // base addr in rs1
     uint8_t dst_reg;
-    uint8_t micro_vl;
-    bool vm;
     Request::Flags memAccessFlags;
 
     VleMicroInst(const char *mnem, ExtMachInst extMachInst,
             OpClass __opClass, uint32_t _offset, uint8_t _dst_reg,
             uint8_t _micro_vl)
-        : RiscvMicroInst(mnem, extMachInst, __opClass),
-        sew(width2sew(extMachInst.width)), offset(_offset), dst_reg(_dst_reg),
-        micro_vl(_micro_vl), vm(extMachInst.vm), memAccessFlags(0)
+        : VectorMemMicroInst(mnem, extMachInst, __opClass, _micro_vl),
+        offset(_offset), dst_reg(_dst_reg),
+        memAccessFlags(0)
     {}
 
     std::string generateDisassembly(
         Addr pc, const loader::SymbolTable *symtab) const override;
 };
 
-class VseMicroInst : public RiscvMicroInst
+class VseMicroInst : public VectorMemMicroInst
 {
 protected:
-    uint32_t sew;
     uint32_t offset; // base addr in rs1
     uint8_t src_reg;
-    uint8_t micro_vl;
-    bool vm;
     Request::Flags memAccessFlags;
 
     VseMicroInst(const char *mnem, ExtMachInst extMachInst,
             OpClass __opClass, uint32_t _offset, uint8_t _src_reg,
             uint8_t _micro_vl)
-        : RiscvMicroInst(mnem, extMachInst, __opClass),
-        sew(width2sew(extMachInst.width)), offset(_offset), src_reg(_src_reg),
-        micro_vl(_micro_vl), vm(extMachInst.vm), memAccessFlags(0)
+        : VectorMemMicroInst(mnem, extMachInst, __opClass, _micro_vl),
+        offset(_offset), src_reg(_src_reg),
+        memAccessFlags(0)
     {}
+
     std::string generateDisassembly(
         Addr pc, const loader::SymbolTable *symtab) const override;
 };
@@ -199,7 +240,7 @@ private:
     uint8_t src_num;
 public:
     VldMvMicroInst(ExtMachInst extMachInst, uint8_t _dst_reg, uint8_t _src_num)
-        : VectorArithMicroInst("vl_mv_micro", extMachInst, VectorMemLoadOp)
+        : VectorArithMicroInst("vl_mv_micro", extMachInst, VectorMemLoadOp, 0)
     {
         src_num = _src_num;
         setRegIdxArrays(
@@ -238,7 +279,7 @@ private:
     uint8_t dst_num;
 public:
     VstMvMicroInst(ExtMachInst extMachInst, uint8_t _src_reg, uint8_t _dst_num)
-        : VectorArithMicroInst("vs_mv_micro", extMachInst, VectorMemStoreOp)
+        : VectorArithMicroInst("vs_mv_micro", extMachInst, VectorMemStoreOp, 0)
     {
         dst_num = _dst_num;
         setRegIdxArrays(
@@ -282,13 +323,10 @@ public:
 class VectorIntMicroOp : public VectorArithMicroInst
 {
 public:
-    uint32_t sew;
-    uint8_t micro_vl;
     uint8_t micro_idx;
     VectorIntMicroOp(const char *mnem, ExtMachInst extMachInst,
             OpClass __opClass, uint8_t _micro_vl, uint8_t _micro_idx)
-        : VectorArithMicroInst(mnem, extMachInst, __opClass),
-        sew(get_sew(extMachInst.vtype.vsew)), micro_vl(_micro_vl),
+        : VectorArithMicroInst(mnem, extMachInst, __opClass, _micro_vl),
         micro_idx(_micro_idx)
     {}
     using VectorArithMicroInst::generateDisassembly;
