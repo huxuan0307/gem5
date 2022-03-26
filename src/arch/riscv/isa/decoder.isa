@@ -1442,7 +1442,6 @@ decode QUADRANT default Unknown::unknown() {
                     }}, VectorIntOp);
                 }
                 format VIntOp {
-
                     0x2: vsub_vv({{
                         VLOOP_IF_MASK ({
                             Vd_vi[i] = Vs2_vi[i] - Vs1_vi[i];
@@ -1626,12 +1625,44 @@ decode QUADRANT default Unknown::unknown() {
             format VFloatOp {
                 // OPFVV
                 0x1: decode VFUNCT6 {
-                    0x00: vfadd_vv({{
-                        VLOOP_IF_MASK ({
+                    format VectorFloatFormat {
+                        0x00: vfadd_vv({{
                             auto fd = fadd(ftype(Vs2_vu[i]), ftype(Vs1_vu[i]));
                             Vd_vu[i] = fd.v;
-                        });
-                    }}, VectorFloatOp);
+                        }}, VectorIntOp);
+                        0x02: vfsub_vv({{
+                            auto fd = fsub(ftype(Vs2_vu[i]), ftype(Vs1_vu[i]));
+                            Vd_vu[i] = fd.v;
+                        }}, VectorFloatOp);
+                        0x04: vfmin_vv({{
+                            auto fd = fmin(ftype(Vs2_vu[i]), ftype(Vs1_vu[i]));
+                            Vd_vu[i] = fd.v;
+                        }}, VectorFloatOp);
+                        0x06: vfmax_vv({{
+                            auto fd = fmax(ftype(Vs2_vu[i]), ftype(Vs1_vu[i]));
+                            Vd_vu[i] = fd.v;
+                        }}, VectorFloatOp);
+                        0x08: vfsgnj_vv({{
+                            Vd_vu[i] = fsgnj(
+                                Vs2_vu[i], Vs1_vu[i], false, false);
+                        }}, VectorFloatOp);
+                        0x09: vfsgnjn_vv({{
+                            Vd_vu[i] = fsgnj(
+                                Vs2_vu[i], Vs1_vu[i], true, false);
+                        }}, VectorFloatOp);
+                        0x0a: vfsgnjx_vv({{
+                            Vd_vu[i] = fsgnj(
+                                Vs2_vu[i], Vs1_vu[i], false, true);
+                        }}, VectorFloatOp);
+                        0x20: vfdiv_vv({{
+                            auto fd = fdiv(ftype(Vs2_vu[i]), ftype(Vs1_vu[i]));
+                            Vd_vu[i] = fd.v;
+                        }}, VectorFloatOp);
+                        0x24: vfmul_vv({{
+                            auto fd = fmul(ftype(Vs2_vu[i]), ftype(Vs1_vu[i]));
+                            Vd_vu[i] = fd.v;
+                        }}, VectorFloatOp);
+                    }
                     0x01: vfredusum_vs({{
                         auto fd = ftype(Vs1_vu[0]);
                         VLOOP_IF_MASK ({
@@ -1639,62 +1670,26 @@ decode QUADRANT default Unknown::unknown() {
                         });
                         Vd_vu[0] = fd.v;
                     }}, VectorFloatOp);
-                    0x02: vfsub_vv({{
-                        VLOOP_IF_MASK ({
-                            auto fd = fsub(ftype(Vs2_vu[i]), ftype(Vs1_vu[i]));
-                            Vd_vu[i] = fd.v;
-                        });
-                    }}, VectorFloatOp);
                     0x03: vfredosum_vs({{
                         auto fd = ftype(Vs1_vu[0]);
                         VLOOP_IF_MASK ({
                             fd = fadd(fd, ftype(Vs2_vu[i]));
                         });
                         Vd_vu[0] = fd.v;
-                    }}, VectorFloatOp);
-                    0x04: vfmin_vv({{
-                        VLOOP_IF_MASK ({
-                            auto fd = fmin(ftype(Vs2_vu[i]), ftype(Vs1_vu[i]));
-                            Vd_vu[i] = fd.v;
-                        });
-                    }}, VectorFloatOp);
+                    }}, VectorFloatOp);           
                     0x05: vfredmin_vs({{
                         auto fd = ftype(Vs1_vu[0]);
                         VLOOP_IF_MASK ({
                             fd = fmin(fd, ftype(Vs2_vu[i]));
                         });
                         Vd_vu[0] = fd.v;
-                    }}, VectorFloatOp);
-                    0x06: vfmax_vv({{
-                        VLOOP_IF_MASK ({
-                            auto fd = fmax(ftype(Vs2_vu[i]), ftype(Vs1_vu[i]));
-                            Vd_vu[i] = fd.v;
-                        });
-                    }}, VectorFloatOp);
+                    }}, VectorFloatOp);        
                     0x07: vfredmax_vs({{
                         auto fd = ftype(Vs1_vu[0]);
                         VLOOP_IF_MASK ({
                             fd = fmax(fd, ftype(Vs2_vu[i]));
                         });
                         Vd_vu[0] = fd.v;
-                    }}, VectorFloatOp);
-                    0x08: vfsgnj_vv({{
-                        VLOOP_IF_MASK ({
-                            Vd_vu[i] = fsgnj(
-                                Vs2_vu[i], Vs1_vu[i], false, false);
-                        });
-                    }}, VectorFloatOp);
-                    0x09: vfsgnjn_vv({{
-                        VLOOP_IF_MASK ({
-                            Vd_vu[i] = fsgnj(
-                                Vs2_vu[i], Vs1_vu[i], true, false);
-                        });
-                    }}, VectorFloatOp);
-                    0x0a: vfsgnjx_vv({{
-                        VLOOP_IF_MASK ({
-                            Vd_vu[i] = fsgnj(
-                                Vs2_vu[i], Vs1_vu[i], false, true);
-                        });
                     }}, VectorFloatOp);
                     0x12: decode VS1 {
                         0x00: vfcvt_xu_f_v({{
@@ -1768,18 +1763,6 @@ decode QUADRANT default Unknown::unknown() {
                             });
                         }}, VectorFloatOp);
                     }
-                    0x20: vfdiv_vv({{
-                        VLOOP_IF_MASK ({
-                            auto fd = fdiv(ftype(Vs2_vu[i]), ftype(Vs1_vu[i]));
-                            Vd_vu[i] = fd.v;
-                        });
-                    }}, VectorFloatOp);
-                    0x24: vfmul_vv({{
-                        VLOOP_IF_MASK ({
-                            auto fd = fmul(ftype(Vs2_vu[i]), ftype(Vs1_vu[i]));
-                            Vd_vu[i] = fd.v;
-                        });
-                    }}, VectorFloatOp);
                     0x28: vfmadd_vv({{
                         VLOOP_IF_MASK ({
                             auto fd = fmadd(ftype(Vs1_vu[i]),

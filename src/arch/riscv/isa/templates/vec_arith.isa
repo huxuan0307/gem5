@@ -34,7 +34,6 @@ def template VectorIntMacroConstructor {{
     this->microops.back()->setLastMicroop();
   }
 }};
-
 def template VectorIntMicroDeclare {{
   template<typename ElemType>
   class %(class_name)s : public %(base_class)s
@@ -50,7 +49,6 @@ def template VectorIntMicroDeclare {{
     using %(base_class)s::generateDisassembly;
   };
 }};
-
 def template VectorIntMicroConstructor {{
   template<typename ElemType>
   %(class_name)s<ElemType>::%(class_name)s(ExtMachInst extMachInst,
@@ -81,7 +79,6 @@ def template VectorIntMicroConstructor {{
     this->flags[IsVector] = true;
   }
 }};
-
 def template VectorIntMicroExecute {{
   template <typename ElemType>
   Fault
@@ -111,11 +108,163 @@ def template VectorIntMicroExecute {{
     return NoFault;
   }
 }};
-
 def template VectorIntDecodeBlock {{
   switch(machInst.vtype.vsew) {
     case 0b000: return new %(class_name)s<uint8_t>(machInst);
     case 0b001: return new %(class_name)s<uint16_t>(machInst);
+    case 0b010: return new %(class_name)s<uint32_t>(machInst);
+    case 0b011: return new %(class_name)s<uint64_t>(machInst);
+    default: panic("vsew: %x not supported", machInst.vtype.vsew);
+  }
+}};
+def template VectorFloatMacroDeclare {{
+  template<typename ElemType>
+  class %(class_name)s : public %(base_class)s {
+  private:
+    %(reg_idx_arr_decl)s;
+  public:
+    %(class_name)s(ExtMachInst extMachInst);
+    using %(base_class)s::generateDisassembly;
+  };
+}};
+def template VectorFloatMacroConstructor {{
+  template<typename ElemType>
+  %(class_name)s<ElemType>::%(class_name)s(ExtMachInst extMachInst)
+    : %(base_class)s("%(mnemonic)s", extMachInst, VectorIntOp)
+  {
+    %(set_reg_idx_arr)s;
+    %(constructor)s;
+    const uint32_t numMicroOps = numMicroOp();
+    int32_t tmp_vl = this->vl;
+    const int32_t micro_vlmax = TheISA::VLEN >> (extMachInst.vtype.vsew + 3);
+    int32_t micro_vl = std::min(tmp_vl, micro_vlmax);
+    StaticInstPtr micro_op;
+
+    // allow one empty micro op to hold IsLastMicroop flag
+    for (int i=0; i<numMicroOps && micro_vl>=0; ++i) {
+      micro_op = new %(class_name)sMicro<ElemType>(extMachInst, micro_vl, i);
+      micro_op->setDelayedCommit();
+      this->microops.push_back(micro_op);
+      micro_vl = std::min(tmp_vl -= micro_vlmax, micro_vlmax);
+    }
+
+    this->microops.front()->setFirstMicroop();
+    this->microops.back()->setLastMicroop();
+  }
+}};
+def template VectorFloatMicroDeclare {{
+  template<typename ElemType>
+  class %(class_name)s : public %(base_class)s
+  {
+  private:
+    RegId srcRegIdxArr[4];
+    RegId destRegIdxArr[1];
+    bool vm;
+  public:
+    %(class_name)s(ExtMachInst extMachInst,
+            uint8_t _micro_vl, uint8_t _micro_idx);
+    Fault execute(ExecContext* xc, Trace::InstRecord* traceData)const override;
+    using %(base_class)s::generateDisassembly;
+  };
+}};
+def template VectorFloatMicroConstructor {{
+  template<typename ElemType>
+  %(class_name)s<ElemType>::%(class_name)s(ExtMachInst extMachInst,
+        uint8_t _micro_vl, uint8_t _micro_idx)
+    : %(base_class)s("%(mnemonic)s", extMachInst,
+        VectorIntOp, _micro_vl, _micro_idx)
+  {
+    this->vm = extMachInst.vm;
+    %(set_reg_idx_arr)s;
+    _numSrcRegs = 0;
+    _numDestRegs = 0;
+    _numFPDestRegs = 0;
+    _numVecDestRegs = 0;
+    _numVecElemDestRegs = 0;
+    _numVecPredDestRegs = 0;
+    _numIntDestRegs = 0;
+    _numCCDestRegs = 0;
+    setDestRegIdx(_numDestRegs++,
+                    RegId(VecRegClass, extMachInst.vd + _micro_idx));
+    _numVecDestRegs++;
+    setSrcRegIdx(_numSrcRegs++,
+                    RegId(VecRegClass, extMachInst.vs1 + _micro_idx));
+    setSrcRegIdx(_numSrcRegs++,
+                    RegId(VecRegClass, extMachInst.vs2 + _micro_idx));
+    if(!this->vm)
+      setSrcRegIdx(_numSrcRegs++, RegId(VecRegClass, 0));
+
+    this->flags[IsVector] = true;
+  }
+}};
+def template VectorFloatMicroExecute {{
+  template <typename ElemType>
+  Fault
+  %(class_name)s<ElemType>::execute(ExecContext* xc,
+                                    Trace::InstRecord* traceData) const
+  {
+    using vu = ElemType;
+    if (machInst.vill)
+      return std::make_shared<IllegalInstFault>("VILL is set", machInst);
+
+    const auto micro_vlmax = TheISA::VLEN >> (machInst.vtype.vsew + 3);
+    [[maybe_unused]] size_t greg_idx = 0;
+    %(op_decl)s;
+    %(op_rd)s;
+    [[maybe_unused]] RiscvISA::vreg_t tmp_v0;
+    if(!this->vm)
+      tmp_v0 = xc->readVecRegOperand(this, _numSrcRegs-1); // v0 at the last
+    
+    auto v0 = tmp_v0.as<uint8_t>();
+    switch(machInst.vtype.vsew){
+      case 0b010:{
+        [[maybe_unused]] auto ftype = [&](vu v){return f32(v);};
+        [[maybe_unused]] auto fsqrt = f32_sqrt;
+        [[maybe_unused]] auto fsgnj = fsgnj32;
+        [[maybe_unused]] auto
+                        fadd = f32_add,
+                        fsub = f32_sub,
+                        fmin = f32_min,
+                        fmax = f32_max,
+                        fdiv = f32_div,
+                        fmul = f32_mul;
+        for (uint32_t i = 0; i < this->micro_vl; i++) {
+           uint32_t ei = i + micro_vlmax * this->micro_idx;
+           if (this->vm || elem_mask(v0, ei)) {
+            %(code)s;
+            }
+        }
+        %(op_wb)s;
+        break;
+      }
+      case 0b011: {
+          [[maybe_unused]] auto ftype = [&](vu v){return f64(v);};
+          [[maybe_unused]] auto fsqrt = f64_sqrt;
+          [[maybe_unused]] auto fsgnj = fsgnj64;
+          [[maybe_unused]] auto
+                          fadd = f64_add,
+                          fsub = f64_sub,
+                          fmin = f64_min,
+                          fmax = f64_max,
+                          fdiv = f64_div,
+                          fmul = f64_mul;
+          for (uint32_t i = 0; i < this->micro_vl; i++) {
+           uint32_t ei = i + micro_vlmax * this->micro_idx;
+           if (this->vm || elem_mask(v0, ei)) {
+            %(code)s;
+            }
+          }
+          %(op_wb)s;
+          break;
+      }
+      default: panic("vsew: %d not supported", machInst.vtype.vsew);
+    }
+    
+    return NoFault;
+  }
+}};
+def template VectorFloatDecodeBlock {{
+  switch(machInst.vtype.vsew) {
     case 0b010: return new %(class_name)s<uint32_t>(machInst);
     case 0b011: return new %(class_name)s<uint64_t>(machInst);
     default: panic("vsew: %x not supported", machInst.vtype.vsew);

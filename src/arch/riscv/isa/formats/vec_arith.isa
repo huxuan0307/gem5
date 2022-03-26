@@ -1,3 +1,23 @@
+def format VectorFloatFormat(code, *flags) {{
+    iop = InstObjParams(name,
+      Name,
+      'VectorFloatMacroOp',
+      {'code': code},
+      flags)
+    microiop = InstObjParams(name + "_micro",
+      Name + "Micro",
+      'VectorFloatMicroOp',
+      {'code': code},
+      flags)
+    header_output = \
+        VectorFloatMicroDeclare.subst(microiop) + \
+        VectorFloatMicroConstructor.subst(microiop) + \
+        VectorFloatMicroExecute.subst(microiop) + \
+        VectorFloatMacroDeclare.subst(iop) + \
+        VectorFloatMacroConstructor.subst(iop)
+    decode_block = VectorFloatDecodeBlock.subst(iop)
+}};
+
 def format VectorIntFormat(code, *flags) {{
     iop = InstObjParams(name,
       Name,
@@ -17,4 +37,3 @@ def format VectorIntFormat(code, *flags) {{
         VectorIntMacroConstructor.subst(iop)
     decode_block = VectorIntDecodeBlock.subst(iop)
 }};
-
