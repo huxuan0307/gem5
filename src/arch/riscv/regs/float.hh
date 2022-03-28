@@ -103,18 +103,18 @@ const std::vector<std::string> FloatRegNames = {
     "ft8", "ft9", "ft10", "ft11"
 };
 
-inline uint32_t
-fsgnj32(uint32_t a, uint32_t b, bool n, bool x) {
-    if (n) b = ~b;
-    else if (x) b = a ^ b;
-    return insertBits(b, 30, 0, a);
+inline float32_t
+fsgnj32(float32_t a, float32_t b, bool n, bool x) {
+    if (n) b.v = ~b.v;
+    else if (x) b.v = a.v ^ b.v;
+    return f32(insertBits(b.v, 30, 0, a.v));
 }
 
-inline uint64_t
-fsgnj64(uint64_t a, uint64_t b, bool n, bool x) {
-    if (n) b = ~b;
-    else if (x) b = a ^ b;
-    return insertBits(b, 62, 0, a);
+inline float64_t
+fsgnj64(float64_t a, float64_t b, bool n, bool x) {
+    if (n) b.v = ~b.v;
+    else if (x) b.v = a.v ^ b.v;
+    return f64(insertBits(b.v, 62, 0, a.v));
 }
 
 } // namespace RiscvISA

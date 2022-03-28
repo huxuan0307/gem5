@@ -1,3 +1,95 @@
+output header {{
+  template<typename FloatType, typename IntType = decltype(FloatType::v)>
+  auto Ftype(IntType a) -> FloatType
+  {
+    if constexpr(std::is_same_v<uint32_t, IntType>)
+      return f32(a);
+    else if constexpr(std::is_same_v<uint64_t, IntType>)
+      return f64(a);
+    GEM5_UNREACHABLE;
+  }
+
+  template<typename FloatType>
+  FloatType Fadd(FloatType a, FloatType b)
+  {
+    if constexpr(std::is_same_v<float32_t, FloatType>)
+      return f32_add(a, b);
+    else if constexpr(std::is_same_v<float64_t, FloatType>)
+      return f64_add(a, b);
+    GEM5_UNREACHABLE;
+  }
+
+  template<typename FloatType>
+  FloatType Fsub(FloatType a, FloatType b)
+  {
+    if constexpr(std::is_same_v<float32_t, FloatType>)
+      return f32_sub(a, b);
+    else if constexpr(std::is_same_v<float64_t, FloatType>)
+      return f64_sub(a, b);
+    GEM5_UNREACHABLE;
+  }
+
+  template<typename FloatType>
+  FloatType Fmin(FloatType a, FloatType b)
+  {
+    if constexpr(std::is_same_v<float32_t, FloatType>)
+      return f32_min(a, b);
+    else if constexpr(std::is_same_v<float64_t, FloatType>)
+      return f64_min(a, b);
+    GEM5_UNREACHABLE;
+  }
+
+  template<typename FloatType>
+  FloatType Fmax(FloatType a, FloatType b)
+  {
+    if constexpr(std::is_same_v<float32_t, FloatType>)
+      return f32_max(a, b);
+    else if constexpr(std::is_same_v<float64_t, FloatType>)
+      return f64_max(a, b);
+    GEM5_UNREACHABLE;
+  }
+
+  template<typename FloatType>
+  FloatType Fdiv(FloatType a, FloatType b)
+  {
+    if constexpr(std::is_same_v<float32_t, FloatType>)
+      return f32_div(a, b);
+    else if constexpr(std::is_same_v<float64_t, FloatType>)
+      return f64_div(a, b);
+    GEM5_UNREACHABLE;
+  }
+
+  template<typename FloatType>
+  FloatType Fmul(FloatType a, FloatType b)
+  {
+    if constexpr(std::is_same_v<float32_t, FloatType>)
+      return f32_mul(a, b);
+    else if constexpr(std::is_same_v<float64_t, FloatType>)
+      return f64_mul(a, b);
+    GEM5_UNREACHABLE;
+  }
+
+  template<typename FloatType>
+  FloatType Fsqrt(FloatType a)
+  {
+    if constexpr(std::is_same_v<float32_t, FloatType>)
+      return f32_sqrt(a);
+    else if constexpr(std::is_same_v<float64_t, FloatType>)
+      return f64_sqrt(a);
+    GEM5_UNREACHABLE;
+  }
+
+  template<typename FloatType>
+  FloatType Fsgnj(FloatType a, FloatType b, bool n, bool x)
+  {
+    if constexpr(std::is_same_v<float32_t, FloatType>)
+      return fsgnj32(a, b, n, x);
+    else if constexpr(std::is_same_v<float64_t, FloatType>)
+      return fsgnj64(a, b, n, x);
+    GEM5_UNREACHABLE;
+  }
+}};
+
 def template VectorIntMacroDeclare {{
   template<typename ElemType>
   class %(class_name)s : public %(base_class)s {
@@ -204,7 +296,17 @@ def template VectorFloatMicroExecute {{
   %(class_name)s<ElemType>::execute(ExecContext* xc,
                                     Trace::InstRecord* traceData) const
   {
-    using vu = ElemType;
+    using vu = decltype(ElemType::v);
+    auto ftype = Ftype<ElemType>;
+    [[maybe_unused]] auto fsqrt = Fsqrt<ElemType>;
+    [[maybe_unused]] auto fsgnj = Fsgnj<ElemType>;
+    [[maybe_unused]] auto
+                    fadd = Fadd<ElemType>,
+                    fsub = Fsub<ElemType>,
+                    fmin = Fmin<ElemType>,
+                    fmax = Fmax<ElemType>,
+                    fdiv = Fdiv<ElemType>,
+                    fmul = Fmul<ElemType>;
     if (machInst.vill)
       return std::make_shared<IllegalInstFault>("VILL is set", machInst);
 
@@ -213,61 +315,27 @@ def template VectorFloatMicroExecute {{
     %(op_decl)s;
     %(op_rd)s;
     [[maybe_unused]] RiscvISA::vreg_t tmp_v0;
-    if(!this->vm)
+    [[maybe_unused]] uint8_t* v0;
+    if(!this->vm) {
       tmp_v0 = xc->readVecRegOperand(this, _numSrcRegs-1); // v0 at the last
-    
-    auto v0 = tmp_v0.as<uint8_t>();
-    switch(machInst.vtype.vsew){
-      case 0b010:{
-        [[maybe_unused]] auto ftype = [&](vu v){return f32(v);};
-        [[maybe_unused]] auto fsqrt = f32_sqrt;
-        [[maybe_unused]] auto fsgnj = fsgnj32;
-        [[maybe_unused]] auto
-                        fadd = f32_add,
-                        fsub = f32_sub,
-                        fmin = f32_min,
-                        fmax = f32_max,
-                        fdiv = f32_div,
-                        fmul = f32_mul;
-        for (uint32_t i = 0; i < this->micro_vl; i++) {
-           uint32_t ei = i + micro_vlmax * this->micro_idx;
-           if (this->vm || elem_mask(v0, ei)) {
-            %(code)s;
-            }
-        }
-        %(op_wb)s;
-        break;
-      }
-      case 0b011: {
-          [[maybe_unused]] auto ftype = [&](vu v){return f64(v);};
-          [[maybe_unused]] auto fsqrt = f64_sqrt;
-          [[maybe_unused]] auto fsgnj = fsgnj64;
-          [[maybe_unused]] auto
-                          fadd = f64_add,
-                          fsub = f64_sub,
-                          fmin = f64_min,
-                          fmax = f64_max,
-                          fdiv = f64_div,
-                          fmul = f64_mul;
-          for (uint32_t i = 0; i < this->micro_vl; i++) {
-           uint32_t ei = i + micro_vlmax * this->micro_idx;
-           if (this->vm || elem_mask(v0, ei)) {
-            %(code)s;
-            }
-          }
-          %(op_wb)s;
-          break;
-      }
-      default: panic("vsew: %d not supported", machInst.vtype.vsew);
+      v0 = tmp_v0.as<uint8_t>();
     }
-    
+
+    for (uint32_t i = 0; i < this->micro_vl; i++) {
+      uint32_t ei = i + micro_vlmax * this->micro_idx;
+      if (this->vm || elem_mask(v0, ei)) {
+        %(code)s;
+      }
+    }
+    %(op_wb)s;
+
     return NoFault;
   }
 }};
 def template VectorFloatDecodeBlock {{
   switch(machInst.vtype.vsew) {
-    case 0b010: return new %(class_name)s<uint32_t>(machInst);
-    case 0b011: return new %(class_name)s<uint64_t>(machInst);
+    case 0b010: return new %(class_name)s<float32_t>(machInst);
+    case 0b011: return new %(class_name)s<float64_t>(machInst);
     default: panic("vsew: %x not supported", machInst.vtype.vsew);
   }
 }};

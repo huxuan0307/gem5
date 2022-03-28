@@ -347,13 +347,10 @@ public:
 class VectorFloatMicroOp : public VectorArithMicroInst
 {
 public:
-    uint32_t sew;
-    uint8_t micro_vl;
     uint8_t micro_idx;
     VectorFloatMicroOp(const char *mnem, ExtMachInst extMachInst,
             OpClass __opClass, uint8_t _micro_vl, uint8_t _micro_idx)
-        : VectorArithMicroInst(mnem, extMachInst, __opClass),
-        sew(get_sew(extMachInst.vtype.vsew)), micro_vl(_micro_vl),
+        : VectorArithMicroInst(mnem, extMachInst, __opClass, _micro_vl),
         micro_idx(_micro_idx)
     {}
     using VectorArithMicroInst::generateDisassembly;

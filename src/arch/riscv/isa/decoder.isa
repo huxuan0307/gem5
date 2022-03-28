@@ -1615,16 +1615,16 @@ decode QUADRANT default Unknown::unknown() {
                             Vd_vu[i] = fd.v;
                         }}, VectorFloatOp);
                         0x08: vfsgnj_vv({{
-                            Vd_vu[i] = fsgnj(
-                                Vs2_vu[i], Vs1_vu[i], false, false);
+                            Vd_vu[i] = fsgnj(ftype(Vs2_vu[i]),
+                                ftype(Vs1_vu[i]), false, false).v;
                         }}, VectorFloatOp);
                         0x09: vfsgnjn_vv({{
-                            Vd_vu[i] = fsgnj(
-                                Vs2_vu[i], Vs1_vu[i], true, false);
+                            Vd_vu[i] = fsgnj(ftype(Vs2_vu[i]),
+                                ftype(Vs1_vu[i]), true, false).v;
                         }}, VectorFloatOp);
                         0x0a: vfsgnjx_vv({{
-                            Vd_vu[i] = fsgnj(
-                                Vs2_vu[i], Vs1_vu[i], false, true);
+                            Vd_vu[i] = fsgnj(ftype(Vs2_vu[i]),
+                                ftype(Vs1_vu[i]), false, true).v;
                         }}, VectorFloatOp);
                         0x20: vfdiv_vv({{
                             auto fd = fdiv(ftype(Vs2_vu[i]), ftype(Vs1_vu[i]));
