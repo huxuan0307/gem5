@@ -15,14 +15,6 @@ namespace gem5
 namespace RiscvISA
 {
 
-inline int
-elem_mask(const uint8_t* v0, const int index)
-{
-    int idx = index / 8;
-    int pos = index % 8;
-    return (v0[idx] >> pos) & 1;
-}
-
 std::string VectorArithMicroInst::generateDisassembly(Addr pc,
         const loader::SymbolTable *symtab) const
 {

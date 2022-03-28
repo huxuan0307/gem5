@@ -14,19 +14,6 @@ namespace gem5
 namespace RiscvISA
 {
 
-/*
-  *  Spec Section 4.5
-  *  Ref:
-  *  https://github.com/qemu/qemu/blob/c7d773ae/target/riscv/vector_helper.c
-*/
-inline int
-elem_mask(const uint8_t* v0, const int index)
-{
-  int idx = index / 8;
-  int pos = index % 8;
-  return (v0[idx] >> pos) & 1;
-}
-
 /**
  * Base class for arith operations.
  */

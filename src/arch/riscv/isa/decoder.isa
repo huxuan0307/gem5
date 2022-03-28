@@ -1494,22 +1494,9 @@ decode QUADRANT default Unknown::unknown() {
                         // the unmasked versions (vm=1) are reserved
                     }
                     0x11: decode VM {
-                        format VIntMaskOp {
-                            0x0: vmadc_vvm({{
-                                VLOOP ({
-                                    Vds[ei/8] = ASSIGN_VD_BIT(ei,
-                                        carry_out(Vs2_vi[i], Vs1_vi[i],
-                                                elem_mask(v0, i))
-                                    );
-                                });
-                            }}, VectorIntOp);
-                            0x1: vmadc_vv({{
-                                VLOOP ({
-                                    Vds[ei/8] = ASSIGN_VD_BIT(ei,
-                                        carry_out(Vs2_vi[i], Vs1_vi[i])
-                                    );
-                                });
-                            }}, VectorIntOp);
+                        format VectorIntMaskFormat {
+                            0x0: vmadc_vvm();
+                            0x1: vmadc_vv();
                         }
                     }
                     0x12: decode VM {
