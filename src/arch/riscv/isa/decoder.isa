@@ -1483,102 +1483,93 @@ decode QUADRANT default Unknown::unknown() {
                         Vd_vi[i] = Vs2_vi[i] >> (Vs1_vu[i] & this->sew_mask());
                     }}, VectorIntOp);
                 }
-                format VIntOp {
-                    0x10: decode VM {
-                        0x0: vadc_vvm({{
-                            VLOOP ({
-                                Vd_vi[i] = Vs2_vi[i] + Vs1_vi[i]
-                                         + elem_mask(v0, i);
-                            });
+                0x10: decode VM {
+                    0x0: VectorIntFormat::vadc_vvm({{
+                        Vd_vi[i] = Vs2_vi[i] + Vs1_vi[i] + elem_mask(v0, ei);
+                    }}, VectorIntOp);
+                    // the unmasked versions (vm=1) are reserved
+                }
+                0x11: decode VM {
+                    format VectorIntMaskFormat {
+                        0x0: vmadc_vvm({{
+                            Vds[ei/8] = ASSIGN_VD_BIT(ei,
+                                carry_out(Vs2_vu[i], Vs1_vu[i],
+                                        elem_mask(v0, ei)));
                         }}, VectorIntOp);
-                        // the unmasked versions (vm=1) are reserved
+                        0x1: vmadc_vv({{
+                            Vds[ei/8] = ASSIGN_VD_BIT(ei,
+                                carry_out(Vs2_vu[i], Vs1_vu[i]));
+                        }}, VectorIntOp);
                     }
-                    0x11: decode VM {
-                        format VectorIntMaskFormat {
-                            0x0: vmadc_vvm();
-                            0x1: vmadc_vv();
+                }
+                0x12: decode VM {
+                    0x0: VectorIntFormat::vsbc_vvm({{
+                        Vd_vi[i] = Vs2_vi[i] - Vs1_vi[i] - elem_mask(v0, ei);
+                    }}, VectorIntOp);
+                    // the unmasked versions (vm=1) are reserved
+                }
+                0x13: decode VM {
+                    format VectorIntMaskFormat {
+                        0x0: vmsbc_vvm({{
+                            Vds[ei/8] = ASSIGN_VD_BIT(ei,
+                                borrow_out(Vs2_vi[i], Vs1_vi[i],
+                                        elem_mask(v0, ei))
+                            );
+                        }}, VectorIntOp);
+                        0x1: vmsbc_vv({{
+                            Vds[ei/8] = ASSIGN_VD_BIT(ei,
+                                borrow_out(Vs2_vi[i], Vs1_vi[i])
+                            );
+                        }}, VectorIntOp);
+                    }
+                }
+                0x17: decode VM {
+                    0x0: VectorIntFormat::vmerge_vvm({{
+                            Vd_vu[i] = elem_mask(v0, ei)
+                                    ? Vs1_vu[i]
+                                    : Vs2_vu[i];
+                    }}, VectorIntOp);
+                    0x1: VectorIntFormat::vmv_v_v({{
+                            Vd_vu[i] = Vs1_vu[i];
+                    }}, VectorIntOp);
+                }
+                format VectorIntMaskFormat {
+                    0x18: vmseq_vv({{
+                        if (this->vm || elem_mask(v0, ei)) {
+                            Vds[ei/8] = ASSIGN_VD_BIT(ei,
+                                (Vs2_vu[i] == Vs1_vu[i]));
                         }
-                    }
-                    0x12: decode VM {
-                        0x0: vsbc_vvm({{
-                            VLOOP ({
-                                Vd_vi[i] = Vs2_vi[i] - Vs1_vi[i]
-                                         - elem_mask(v0, i);
-                            });
-                        }}, VectorIntOp);
-                        // the unmasked versions (vm=1) are reserved
-                    }
-                    0x13: decode VM {
-                        format VIntMaskOp {
-                            0x0: vmsbc_vvm({{
-                                VLOOP ({
-                                    Vds[ei/8] = ASSIGN_VD_BIT(ei,
-                                        borrow_out(Vs2_vi[i], Vs1_vi[i],
-                                                elem_mask(v0, i))
-                                    );
-                                });
-                            }}, VectorIntOp);
-                            0x1: vmsbc_vv({{
-                                VLOOP ({
-                                    Vds[ei/8] = ASSIGN_VD_BIT(ei,
-                                        borrow_out(Vs2_vi[i], Vs1_vi[i])
-                                    );
-                                });
-                            }}, VectorIntOp);
-                        }
-                    }
-                    0x17: decode VM {
-                        0x0: vmerge_vvm({{
-                            VLOOP ({
-                                Vd_vu[i] = elem_mask(v0, i)
-                                        ? Vs1_vu[i]
-                                        : Vs2_vu[i];
-                            });
-                        }}, VectorIntOp);
-                        0x1: vmv_v_v({{
-                            VLOOP ({
-                                Vd_vu[i] = Vs1_vu[i];
-                            });
-                        }}, VectorIntOp);
-                    }
-                    format VIntMaskOp {
-                        0x18: vmseq_vv({{
-                            VLOOP_IF_MASK ({
-                                Vds[ei/8] = ASSIGN_VD_BIT(ei,
-                                    (Vs2_vu[i] == Vs1_vu[i]));
-                            });
-                        }}, VectorIntOp);
-                        0x19: vmsne_vv({{
-                            VLOOP_IF_MASK ({
-                                Vds[ei/8] = ASSIGN_VD_BIT(ei,
-                                    (Vs2_vu[i] != Vs1_vu[i]));
-                            });
-                        }}, VectorIntOp);
-                        0x1a: vmsltu_vv({{
-                            VLOOP_IF_MASK ({
-                                Vds[ei/8] = ASSIGN_VD_BIT(ei,
-                                    (Vs2_vu[i] < Vs1_vu[i]));
-                            });
-                        }}, VectorIntOp);
-                        0x1b: vmslt_vv({{
-                            VLOOP_IF_MASK ({
-                                Vds[ei/8] = ASSIGN_VD_BIT(ei,
-                                    (Vs2_vi[i] < Vs1_vi[i]));
-                            });
-                        }}, VectorIntOp);
-                        0x1c: vmsleu_vv({{
-                            VLOOP_IF_MASK ({
-                                Vds[ei/8] = ASSIGN_VD_BIT(ei,
-                                    (Vs2_vu[i] <= Vs1_vu[i]));
-                            });
-                        }}, VectorIntOp);
-                        0x1d: vmsle_vv({{
-                            VLOOP_IF_MASK ({
-                                Vds[ei/8] = ASSIGN_VD_BIT(ei,
-                                    (Vs2_vi[i] <= Vs1_vi[i]));
-                            });
-                        }}, VectorIntOp);
-                    }
+                    }}, VectorIntOp);
+                    0x19: vmsne_vv({{
+                        if (this->vm || elem_mask(v0, ei)) {
+                            Vds[ei/8] = ASSIGN_VD_BIT(ei,
+                                (Vs2_vu[i] != Vs1_vu[i]));
+                        };
+                    }}, VectorIntOp);
+                    0x1a: vmsltu_vv({{
+                        if (this->vm || elem_mask(v0, ei)) {
+                            Vds[ei/8] = ASSIGN_VD_BIT(ei,
+                                (Vs2_vu[i] < Vs1_vu[i]));
+                        };
+                    }}, VectorIntOp);
+                    0x1b: vmslt_vv({{
+                        if (this->vm || elem_mask(v0, ei)) {
+                            Vds[ei/8] = ASSIGN_VD_BIT(ei,
+                                (Vs2_vi[i] < Vs1_vi[i]));
+                        };
+                    }}, VectorIntOp);
+                    0x1c: vmsleu_vv({{
+                        if (this->vm || elem_mask(v0, ei)) {
+                            Vds[ei/8] = ASSIGN_VD_BIT(ei,
+                                (Vs2_vu[i] <= Vs1_vu[i]));
+                        };
+                    }}, VectorIntOp);
+                    0x1d: vmsle_vv({{
+                        if (this->vm || elem_mask(v0, ei)) {
+                            Vds[ei/8] = ASSIGN_VD_BIT(ei,
+                                (Vs2_vi[i] <= Vs1_vi[i]));
+                        };
+                    }}, VectorIntOp);
                 }
             }
             format VFloatOp {

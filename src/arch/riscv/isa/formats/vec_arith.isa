@@ -38,14 +38,22 @@ def format VectorIntFormat(code, *flags) {{
     decode_block = VectorIntDecodeBlock.subst(iop)
 }};
 
-def format VectorIntMaskFormat() {{
-    decode_block = '''
-      switch(machInst.vtype.vsew) {
-        case 0b000: return new VmadcVV<uint8_t>(machInst);
-        case 0b001: return new VmadcVV<uint16_t>(machInst);
-        case 0b010: return new VmadcVV<uint32_t>(machInst);
-        case 0b011: return new VmadcVV<uint64_t>(machInst);
-        default: panic("vsew: %x not supported", machInst.vtype.vsew);
-      }
-    '''
+def format VectorIntMaskFormat(code, *flags) {{
+    iop = InstObjParams(name,
+      Name,
+      'VectorIntMaskMacroOp',
+      {'code': code},
+      flags)
+    microiop = InstObjParams(name + "_micro",
+      Name + "Micro",
+      'VectorIntMaskMicroOp',
+      {'code': code},
+      flags)
+    header_output = \
+        VectorIntMaskMicroDeclare.subst(microiop) + \
+        VectorIntMaskMicroConstructor.subst(microiop) + \
+        VectorIntMaskMicroExecute.subst(microiop) + \
+        VectorIntMaskMacroDeclare.subst(iop) + \
+        VectorIntMaskMacroConstructor.subst(iop)
+    decode_block = VectorIntDecodeBlock.subst(iop)
 }};

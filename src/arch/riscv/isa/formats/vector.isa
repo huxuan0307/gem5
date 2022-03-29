@@ -60,26 +60,6 @@ output exec {{
         return width == 0 ? 8 : (1 << (width - 1));
     }
 
-    template<typename Type>
-    bool inline
-    carry_out(Type a, Type b, bool carry_in = false) {
-        using TypeU = std::make_unsigned_t<Type>;
-        TypeU s = *reinterpret_cast<TypeU*>(&a)
-                + *reinterpret_cast<TypeU*>(&b) + carry_in;
-        return carry_in
-            ? (s <= *reinterpret_cast<TypeU*>(&a))
-            : (s <  *reinterpret_cast<TypeU*>(&a));
-    }
-
-    template<typename Type>
-    bool inline
-    borrow_out(Type a, Type b, bool borrow_in = false) {
-        using TypeU = std::make_unsigned_t<Type>;
-        return borrow_in
-            ? (*reinterpret_cast<TypeU*>(&a) <= *reinterpret_cast<TypeU*>(&b))
-            : (*reinterpret_cast<TypeU*>(&a) <  *reinterpret_cast<TypeU*>(&b));
-    }
-
     inline uint32_t
     fsgnj32(uint32_t a, uint32_t b, bool n, bool x) {
         if (n) b = ~b;
@@ -97,9 +77,6 @@ output exec {{
     #define CHECK_VILL                                                      \
     if (bits(tc->readMiscReg(MISCREG_VTYPE), XLEN - 1))                     \
         return std::make_shared<IllegalInstFault>("VILL is set", machInst);
-
-    #define ASSIGN_VD_BIT(idx, bit) \
-    ((Vds[(idx)/8] & ~(1 << (idx)%8)) | ((bit) << (idx)%8))
 
     #define VLOOP(...)                              \
     for (; ei < vl; ei++) {                         \
