@@ -18,17 +18,35 @@ def format VectorFloatFormat(code, *flags) {{
     decode_block = VectorFloatDecodeBlock.subst(iop)
 }};
 
-def format VectorIntFormat(code, *flags) {{
+def format VectorIntFormat(code, category, *flags) {{
     iop = InstObjParams(name,
       Name,
       'VectorIntMacroOp',
       {'code': code},
       flags)
+
+    destRegId = "RegId(VecRegClass, extMachInst.vd + _micro_idx)"
+
+    src1RegId = ""
+    if category == "OPIVV":
+        src1RegId = "RegId(VecRegClass, extMachInst.vs1 + _micro_idx)"
+    elif category == 'OPIVX':
+        src1RegId = "RegId(IntRegClass, extMachInst.rs1)"
+    elif category == 'OPIVI':
+        pass
+    else:
+        print("not supported category for VectorIntFormat:", category)
+    src2RegId = "RegId(VecRegClass, extMachInst.vs2 + _micro_idx)"
+
     microiop = InstObjParams(name + "_micro",
       Name + "Micro",
       'VectorIntMicroOp',
-      {'code': code},
+      {'code': code,
+       'destRegId': destRegId,
+       'src1RegId': src1RegId,
+       'src2RegId': src2RegId},
       flags)
+
     header_output = \
         VectorIntMicroDeclare.subst(microiop) + \
         VectorIntMicroConstructor.subst(microiop) + \
