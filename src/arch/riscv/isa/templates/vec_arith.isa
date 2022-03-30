@@ -439,13 +439,10 @@ def template VectorIntMaskMicroConstructor {{
     _numVecPredDestRegs = 0;
     _numIntDestRegs = 0;
     _numCCDestRegs = 0;
-    setDestRegIdx(_numDestRegs++,
-                    RegId(VecRegClass, extMachInst.vd));
+    setDestRegIdx(_numDestRegs++, %(destRegId)s);
     _numVecDestRegs++;
-    setSrcRegIdx(_numSrcRegs++,
-                    RegId(VecRegClass, extMachInst.vs1 + _micro_idx));
-    setSrcRegIdx(_numSrcRegs++,
-                    RegId(VecRegClass, extMachInst.vs2 + _micro_idx));
+    setSrcRegIdx(_numSrcRegs++, %(src1RegId)s);
+    setSrcRegIdx(_numSrcRegs++, %(src2RegId)s);
     if(!this->vm)
       setSrcRegIdx(_numSrcRegs++, RegId(VecRegClass, 0));
   }

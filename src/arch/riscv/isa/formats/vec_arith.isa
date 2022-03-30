@@ -56,16 +56,31 @@ def format VectorIntFormat(code, category, *flags) {{
     decode_block = VectorIntDecodeBlock.subst(iop)
 }};
 
-def format VectorIntMaskFormat(code, *flags) {{
+def format VectorIntMaskFormat(code, category, *flags) {{
     iop = InstObjParams(name,
       Name,
       'VectorIntMaskMacroOp',
       {'code': code},
       flags)
+    destRegId = "RegId(VecRegClass, extMachInst.vd)"
+    src1RegId = ""
+    if category == "OPIVV":
+        src1RegId = "RegId(VecRegClass, extMachInst.vs1 + _micro_idx)"
+    elif category == "OPIVX":
+        src1RegId = "RegId(IntRegClass, extMachInst.rs1)"
+    elif category == "OPIVI":
+        pass
+    else:
+        print("not supported category for VectorIntFormat:", category)
+    src2RegId = "RegId(VecRegClass, extMachInst.vs2 + _micro_idx)"
+
     microiop = InstObjParams(name + "_micro",
       Name + "Micro",
       'VectorIntMaskMicroOp',
-      {'code': code},
+      {'code': code,
+       'destRegId': destRegId,
+       'src1RegId': src1RegId,
+       'src2RegId': src2RegId},
       flags)
     header_output = \
         VectorIntMaskMicroDeclare.subst(microiop) + \
