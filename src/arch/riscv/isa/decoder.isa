@@ -1993,25 +1993,6 @@ decode QUADRANT default Unknown::unknown() {
                         }}, OPIVI, VectorIntOp);
                         // the unmasked versions (vm=1) are reserved
                     }
-                    0x11: decode VM {
-                        format VIntMaskOp {
-                            0x0: vmadc_vim({{
-                                VLOOP ({
-                                    Vds[ei/8] = ASSIGN_VD_BIT(ei,
-                                        carry_out(Vs2_vi[i],
-                                            (vi)sext<5>(VECIMM),
-                                            elem_mask(v0, i)));
-                                });
-                            }}, VectorIntOp);
-                            0x1: vmadc_vi({{
-                                VLOOP ({
-                                    Vds[ei/8] = ASSIGN_VD_BIT(ei,
-                                        carry_out(Vs2_vi[i],
-                                            (vi)sext<5>(VECIMM)));
-                                });
-                            }}, VectorIntOp);
-                        }
-                    }
                     0x17: decode VM {
                         0x0: vmerge_vim({{
                             Vd_vi[i] = elem_mask(v0, ei)
@@ -2021,44 +2002,6 @@ decode QUADRANT default Unknown::unknown() {
                         0x1: vmv_v_i({{
                             Vd_vi[i] = (vi)sext<5>(VECIMM);
                         }}, OPIVI, VectorIntOp);
-                    }
-                    format VIntMaskOp {
-                        0x18: vmseq_vi({{
-                            VLOOP_IF_MASK ({
-                                Vds[ei/8] = ASSIGN_VD_BIT(ei,
-                                    (Vs2_vi[i] == VECIMM));
-                            });
-                        }}, VectorIntOp);
-                        0x19: vmsne_vi({{
-                            VLOOP_IF_MASK ({
-                                Vds[ei/8] = ASSIGN_VD_BIT(ei,
-                                    (Vs2_vi[i] != VECIMM));
-                            });
-                        }}, VectorIntOp);
-                        0x1c: vmsleu_vi({{
-                            VLOOP_IF_MASK ({
-                                Vds[ei/8] = ASSIGN_VD_BIT(ei,
-                                    (Vs2_vi[i] <= VECIMM));
-                            });
-                        }}, VectorIntOp);
-                        0x1d: vmsle_vi({{
-                            VLOOP_IF_MASK ({
-                                Vds[ei/8] = ASSIGN_VD_BIT(ei,
-                                    (Vs2_vi[i] <= (vi)sext<5>(VECIMM)));
-                            });
-                        }}, VectorIntOp);
-                        0x1e: vmsgtu_vi({{
-                            VLOOP_IF_MASK ({
-                                Vds[ei/8] = ASSIGN_VD_BIT(ei,
-                                    (Vs2_vi[i] > VECIMM));
-                            });
-                        }}, VectorIntOp);
-                        0x1f: vmsgt_vi({{
-                            VLOOP_IF_MASK ({
-                                Vds[ei/8] = ASSIGN_VD_BIT(ei,
-                                    (Vs2_vi[i] > (vi)sext<5>(VECIMM)));
-                            });
-                        }}, VectorIntOp);
                     }
                     0x25: vsll_vi({{
                         Vd_vu[i] = Vs2_vu[i] <<
@@ -2071,6 +2014,42 @@ decode QUADRANT default Unknown::unknown() {
                     0x29: vsra_vi({{
                         Vd_vi[i] = Vs2_vi[i] >>
                                     ((vu)VECIMM & this->sew_mask());
+                    }}, OPIVI, VectorIntOp);
+                }
+                format VectorIntMaskFormat {
+                    0x11: decode VM {
+                        0x0: vmadc_vim({{
+                            Vds[ei/8] = ASSIGN_VD_BIT(ei, carry_out(Vs2_vi[i],
+                                (vi)sext<5>(VECIMM), elem_mask(v0, ei)));
+                        }}, OPIVI, VectorIntOp);
+                        0x1: vmadc_vi({{
+                            Vds[ei/8] = ASSIGN_VD_BIT(ei, carry_out(Vs2_vi[i],
+                                (vi)sext<5>(VECIMM)));
+                        }}, OPIVI, VectorIntOp);
+                    }
+                    0x18: vmseq_vi({{
+                        Vds[ei/8] = ASSIGN_VD_BIT(ei,
+                                    (Vs2_vi[i] == (vi)sext<5>(VECIMM)));
+                    }}, OPIVI, VectorIntOp);
+                    0x19: vmsne_vi({{
+                        Vds[ei/8] = ASSIGN_VD_BIT(ei,
+                                    (Vs2_vi[i] != (vi)sext<5>(VECIMM)));
+                    }}, OPIVI, VectorIntOp);
+                    0x1c: vmsleu_vi({{
+                        Vds[ei/8] = ASSIGN_VD_BIT(ei,
+                                    (Vs2_vu[i] <= (vu)sext<5>(VECIMM)));
+                    }}, OPIVI, VectorIntOp);
+                    0x1d: vmsle_vi({{
+                        Vds[ei/8] = ASSIGN_VD_BIT(ei,
+                                    (Vs2_vi[i] <= (vi)sext<5>(VECIMM)));
+                    }}, OPIVI, VectorIntOp);
+                    0x1e: vmsgtu_vi({{
+                        Vds[ei/8] = ASSIGN_VD_BIT(ei,
+                                    (Vs2_vu[i] > (vu)sext<5>(VECIMM)));
+                    }}, OPIVI, VectorIntOp);
+                    0x1f: vmsgt_vi({{
+                        Vds[ei/8] = ASSIGN_VD_BIT(ei,
+                                    (Vs2_vi[i] > (vi)sext<5>(VECIMM)));
                     }}, OPIVI, VectorIntOp);
                 }
                 // According to Spec Section 16.6,
