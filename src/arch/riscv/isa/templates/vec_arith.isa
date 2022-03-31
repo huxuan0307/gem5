@@ -184,10 +184,8 @@ def template VectorIntMicroConstructor {{
     _numVecPredDestRegs = 0;
     _numIntDestRegs = 0;
     _numCCDestRegs = 0;
-    %(setDestRegIdx)s;
-    %(setSrcRegIdx)s;
-    if(!this->vm)
-      setSrcRegIdx(_numSrcRegs++, RegId(VecRegClass, 0));
+    %(set_dest_reg_idx)s;
+    %(set_src_reg_idx)s;
   }
 }};
 
@@ -202,23 +200,11 @@ def template VectorIntMicroExecute {{
     if (machInst.vill)
       return std::make_shared<IllegalInstFault>("VILL is set", machInst);
 
-    const auto micro_vlmax = TheISA::VLEN >> (machInst.vtype.vsew + 3);
     [[maybe_unused]] size_t greg_idx = 0;
     %(op_decl)s;
     %(op_rd)s;
-    [[maybe_unused]] RiscvISA::vreg_t tmp_v0;
-    if(!this->vm)
-      tmp_v0 = xc->readVecRegOperand(this, _numSrcRegs-1); // v0 at the last
-    auto v0 = tmp_v0.as<uint8_t>();
-
+    %(vm_decl_rd)s;
     %(code)s;
-
-    for (uint32_t i = 0; i < this->micro_vl; i++) {
-      uint32_t ei = i + micro_vlmax * this->micro_idx;
-      if (this->vm || elem_mask(v0, ei)) {
-        %(code)s;
-      }
-    }
     %(op_wb)s;
     return NoFault;
   }
@@ -313,8 +299,6 @@ def template VectorFloatMicroConstructor {{
                     RegId(VecRegClass, extMachInst.vs2 + _micro_idx));
     if(!this->vm)
       setSrcRegIdx(_numSrcRegs++, RegId(VecRegClass, 0));
-
-    this->flags[IsVector] = true;
   }
 }};
 
@@ -439,10 +423,8 @@ def template VectorIntMaskMicroConstructor {{
     _numVecPredDestRegs = 0;
     _numIntDestRegs = 0;
     _numCCDestRegs = 0;
-    %(setDestRegIdx)s;
-    %(setSrcRegIdx)s;
-    if(!this->vm)
-      setSrcRegIdx(_numSrcRegs++, RegId(VecRegClass, 0));
+    %(set_dest_reg_idx)s;
+    %(set_src_reg_idx)s;
   }
 }};
 
@@ -457,23 +439,16 @@ def template VectorIntMaskMicroExecute {{
     if (machInst.vill)
       return std::make_shared<IllegalInstFault>("VILL is set", machInst);
 
-    const auto micro_vlmax = TheISA::VLEN >> (machInst.vtype.vsew + 3);
     [[maybe_unused]] size_t greg_idx = 0;
     %(op_decl)s;
     %(op_rd)s;
     RiscvISA::vreg_t tmp_d0 = xc->getWritableVecRegOperand(this, 0);
     auto Vds = tmp_d0.as<uint8_t>();
 
-    [[maybe_unused]] RiscvISA::vreg_t tmp_v0;
-    [[maybe_unused]] uint8_t* v0 = nullptr;
-    if(!this->vm)
-      tmp_v0 = xc->readVecRegOperand(this, _numSrcRegs-1); // v0 at the last
-    v0 = tmp_v0.as<uint8_t>();
+    %(vm_decl_rd)s;
 
-    for (uint32_t i = 0; i < this->micro_vl; i++) {
-      uint32_t ei = i + micro_vlmax * this->micro_idx;
-      %(code)s;
-    }
+    %(code)s
+
     xc->setVecRegOperand(this, 0, tmp_d0);
     if (traceData) {
       traceData->setData(tmp_d0);

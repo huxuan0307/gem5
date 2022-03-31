@@ -1527,7 +1527,7 @@ decode QUADRANT default Unknown::unknown() {
                         }}, OPIVV, VectorIntOp);
                         0x1: vmsbc_vv({{
                             Vds[ei/8] = ASSIGN_VD_BIT(ei, borrow_out(
-                                        Vs2_vi[i], Vs1_vi[i]));
+                                    Vs2_vi[i], Vs1_vi[i]));
                         }}, OPIVV, VectorIntOp);
                     }
                     0x18: vmseq_vv({{

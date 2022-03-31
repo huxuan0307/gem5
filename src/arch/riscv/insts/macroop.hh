@@ -78,6 +78,9 @@ protected:
     int8_t ilmul() const { return (int8_t)sext<3>(this->vlmul()); }
 
     uint32_t vlmax() const { return RiscvISA::VLEN >> (vsew() + 3 - ilmul()); }
+
+    uint32_t microVlmax() const { return RiscvISA::VLEN >> (vsew() + 3);}
+
 };
 
 class VectorMicroInst : public RiscvMicroInst
@@ -105,7 +108,7 @@ protected:
 
     uint32_t vlmax() const { return RiscvISA::VLEN >> (vsew() + 3 - ilmul()); }
 
-    uint32_t micro_vlmax() const { return RiscvISA::VLEN >> (vsew() + 3);}
+    uint32_t microVlmax() const { return RiscvISA::VLEN >> (vsew() + 3);}
 
     uint64_t sew_mask() const { return (1 << (3 + vsew())) - 1; }
 };
