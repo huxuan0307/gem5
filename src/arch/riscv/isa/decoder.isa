@@ -1473,6 +1473,32 @@ decode QUADRANT default Unknown::unknown() {
                             ? 0
                             : Vs2_vu[Vs1_vu[i]];
                     }}, OPIVV, VectorIntOp);
+                    0x10: decode VM {
+                        0x0: vadc_vvm({{
+                            Vd_vi[i] = Vs2_vi[i] + Vs1_vi[i]
+                                    + elem_mask(v0, ei);
+                        }}, OPIVV, VectorIntOp);
+                        // the unmasked versions (vm=1) are reserved
+                    }
+                    0x12: decode VM {
+                        0x0: vsbc_vvm({{
+                            Vd_vi[i] = Vs2_vi[i] - Vs1_vi[i]
+                                    - elem_mask(v0, ei);
+                        }}, OPIVV, VectorIntOp);
+                        // the unmasked versions (vm=1) are reserved
+                    }
+                    0x17: decode VM {
+                        0x0: vmerge_vvm({{
+                            Vd_vu[i] = elem_mask(v0, ei)
+                                    ? Vs1_vu[i]
+                                    : Vs2_vu[i];
+                        }}, OPIVV, VectorIntOp);
+                        0x1: decode VS2 {
+                            0x0: vmv_v_v({{
+                                Vd_vu[i] = Vs1_vu[i];
+                            }}, OPIVV, VectorIntOp);
+                        }
+                    }
                     0x25: vsll_vv({{
                         Vd_vu[i] = Vs2_vu[i] << (Vs1_vu[i] & this->sew_mask());
                     }}, OPIVV, VectorIntOp);
@@ -1483,51 +1509,27 @@ decode QUADRANT default Unknown::unknown() {
                         Vd_vi[i] = Vs2_vi[i] >> (Vs1_vu[i] & this->sew_mask());
                     }}, OPIVV, VectorIntOp);
                 }
-                0x10: decode VM {
-                    0x0: VectorIntFormat::vadc_vvm({{
-                        Vd_vi[i] = Vs2_vi[i] + Vs1_vi[i] + elem_mask(v0, ei);
-                    }}, OPIVV, VectorIntOp);
-                    // the unmasked versions (vm=1) are reserved
-                }
-                0x11: decode VM { format VectorIntMaskFormat {
-                    0x0: vmadc_vvm({{
-                        Vds[ei/8] = ASSIGN_VD_BIT(ei, carry_out(
+                format VectorIntMaskFormat {
+                    0x11: decode VM {
+                        0x0: vmadc_vvm({{
+                            Vds[ei/8] = ASSIGN_VD_BIT(ei, carry_out(
                                     Vs2_vu[i], Vs1_vu[i], elem_mask(v0, ei)));
-                    }}, OPIVV, VectorIntOp);
-                    0x1: vmadc_vv({{
-                        Vds[ei/8] = ASSIGN_VD_BIT(ei, carry_out(
+                        }}, OPIVV, VectorIntOp);
+                        0x1: vmadc_vv({{
+                            Vds[ei/8] = ASSIGN_VD_BIT(ei, carry_out(
                                     Vs2_vu[i], Vs1_vu[i]));
-                    }}, OPIVV, VectorIntOp);
-                }}
-                0x12: decode VM {
-                    0x0: VectorIntFormat::vsbc_vvm({{
-                        Vd_vi[i] = Vs2_vi[i] - Vs1_vi[i] - elem_mask(v0, ei);
-                    }}, OPIVV, VectorIntOp);
-                    // the unmasked versions (vm=1) are reserved
-                }
-                0x13: decode VM { format VectorIntMaskFormat {
-                    0x0: vmsbc_vvm({{
-                        Vds[ei/8] = ASSIGN_VD_BIT(ei, borrow_out(
-                                    Vs2_vi[i], Vs1_vi[i], elem_mask(v0, ei)));
-                    }}, OPIVV, VectorIntOp);
-                    0x1: vmsbc_vv({{
-                        Vds[ei/8] = ASSIGN_VD_BIT(ei, borrow_out(
-                                    Vs2_vi[i], Vs1_vi[i]));
-                    }}, OPIVV, VectorIntOp);
-                }}
-                0x17: decode VM {
-                    0x0: VectorIntFormat::vmerge_vvm({{
-                        Vd_vu[i] = elem_mask(v0, ei)
-                                ? Vs1_vu[i]
-                                : Vs2_vu[i];
-                    }}, OPIVV, VectorIntOp);
-                    0x1: decode VS2 {
-                        0x0: VectorIntFormat::vmv_v_v({{
-                            Vd_vu[i] = Vs1_vu[i];
                         }}, OPIVV, VectorIntOp);
                     }
-                }
-                format VectorIntMaskFormat {
+                    0x13: decode VM {
+                        0x0: vmsbc_vvm({{
+                            Vds[ei/8] = ASSIGN_VD_BIT(ei, borrow_out(
+                                    Vs2_vi[i], Vs1_vi[i], elem_mask(v0, ei)));
+                        }}, OPIVV, VectorIntOp);
+                        0x1: vmsbc_vv({{
+                            Vds[ei/8] = ASSIGN_VD_BIT(ei, borrow_out(
+                                        Vs2_vi[i], Vs1_vi[i]));
+                        }}, OPIVV, VectorIntOp);
+                    }
                     0x18: vmseq_vv({{
                         if (this->vm || elem_mask(v0, ei)) {
                             Vds[ei/8] = ASSIGN_VD_BIT(ei,

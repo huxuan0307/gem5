@@ -211,6 +211,8 @@ def template VectorIntMicroExecute {{
       tmp_v0 = xc->readVecRegOperand(this, _numSrcRegs-1); // v0 at the last
     auto v0 = tmp_v0.as<uint8_t>();
 
+    %(code)s;
+
     for (uint32_t i = 0; i < this->micro_vl; i++) {
       uint32_t ei = i + micro_vlmax * this->micro_idx;
       if (this->vm || elem_mask(v0, ei)) {

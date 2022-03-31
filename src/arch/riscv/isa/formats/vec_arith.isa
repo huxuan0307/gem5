@@ -1,3 +1,19 @@
+let {{
+    def setDestWrapper(destRegId):
+        return "setDestRegIdx(_numDestRegs++, " + destRegId + ");\n" + \
+            "_numVecDestRegs++;\n"
+    def setSrcWrapper(srcRegId):
+        return "setSrcRegIdx(_numSrcRegs++, " + srcRegId + ");\n"
+    def loopWrapper(code):
+        return "for (uint32_t i = 0; i < this->micro_vl; i++) {\n" + \
+            code + "\n}\n"
+    def maskCondWrapper(code):
+        return "if (this->vm || elem_mask(v0, ei)) {\n" + \
+            code + "\n}\n"
+    def eiDeclarePrefix(code):
+        return "uint32_t ei = i + micro_vlmax * this->micro_idx;\n" + code
+}};
+
 def format VectorFloatFormat(code, *flags) {{
     iop = InstObjParams(name,
       Name,
@@ -19,17 +35,14 @@ def format VectorFloatFormat(code, *flags) {{
 }};
 
 def format VectorIntFormat(code, category, *flags) {{
-    def setDestWrapper(destRegId):
-        return "setDestRegIdx(_numDestRegs++, " + destRegId + ");\n" + \
-            "_numVecDestRegs++;\n"
-    def setSrcWrapper(srcRegId):
-        return "setSrcRegIdx(_numSrcRegs++, " + srcRegId + ");\n"
-
     iop = InstObjParams(name,
       Name,
       'VectorIntMacroOp',
       {'code': code},
       flags)
+    split_name = name.split("_")
+    mask_cond = ('m' not in split_name[1]) and (split_name[0] != "vmv")
+
     destRegId = "RegId(VecRegClass, extMachInst.vd + _micro_idx)"
     src1RegId = ""
     if category == "OPIVV":
@@ -39,13 +52,19 @@ def format VectorIntFormat(code, category, *flags) {{
     elif category == 'OPIVI':
         pass
     else:
-        print("not supported category for VectorIntFormat:", category)
+        error("not supported category for VectorIntFormat: %s" % category)
     src2RegId = "RegId(VecRegClass, extMachInst.vs2 + _micro_idx)"
     setDestRegIdx = setDestWrapper(destRegId)
     setSrcRegIdx = ""
     if category != 'OPIVI':
         setSrcRegIdx += setSrcWrapper(src1RegId)
     setSrcRegIdx += setSrcWrapper(src2RegId)
+
+    if mask_cond:
+        code = maskCondWrapper(code)
+    if mask_cond or code.find("ei") != -1:
+        code = eiDeclarePrefix(code)
+    code = loopWrapper(code)
 
     microiop = InstObjParams(name + "_micro",
       Name + "Micro",
@@ -65,12 +84,6 @@ def format VectorIntFormat(code, category, *flags) {{
 }};
 
 def format VectorIntMaskFormat(code, category, *flags) {{
-    def setDestWrapper(destRegId):
-        return "setDestRegIdx(_numDestRegs++, " + destRegId + ");\n" + \
-            "_numVecDestRegs++;\n"
-    def setSrcWrapper(srcRegId):
-        return "setSrcRegIdx(_numSrcRegs++, " + srcRegId + ");\n"
-
     iop = InstObjParams(name,
       Name,
       'VectorIntMaskMacroOp',
@@ -85,7 +98,7 @@ def format VectorIntMaskFormat(code, category, *flags) {{
     elif category == "OPIVI":
         pass
     else:
-        print("not supported category for VectorIntFormat:", category)
+        error("not supported category for VectorIntFormat: %s" % category)
     src2RegId = "RegId(VecRegClass, extMachInst.vs2 + _micro_idx)"
     setDestRegIdx = setDestWrapper(destRegId)
     setSrcRegIdx = ""
